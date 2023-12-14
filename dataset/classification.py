@@ -12,4 +12,4 @@ def generate_classification_dataset(
         sample = centroids[class_label] + 0.1 * np.random.randn(n_features)
         X.append(sample)
         y.append(class_label)
-    return np.array(X), np.array(y)
+    return np.array(X), np.array(y).reshape(-1, 1)

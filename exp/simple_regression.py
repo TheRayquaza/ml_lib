@@ -9,7 +9,7 @@ from preprocessing.features_creation import PolynomialFeatures
 from composition.pipeline import Pipeline
 from graphic.curve import plot_2d_curve
 from dataset.generic import generate_linear_dataset, generate_polynomial_dataset
-from metrics import mse
+from metrics.regression_metrics import mse
 from model_selection import train_test_split
 
 pipelines = [
@@ -53,7 +53,7 @@ linear_datasets = [
 poly_datasets = [
     generate_polynomial_dataset(3000, degree=2),
     generate_polynomial_dataset(3000, degree=3),
-    generate_polynomial_dataset(3000, degree=5)
+    generate_polynomial_dataset(3000, degree=5),
 ]
 
 datasets = [

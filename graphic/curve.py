@@ -1,22 +1,25 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from math import log10
+from classes.model import Model
 
 
 def plot_2d_curve(X: np.array, y: np.array, ax=None, name=None):
     if not ax:
         fig, ax = plt.subplots()
-    if name:
-        ax.set_title(name)
+    if not name:
+        name = "2D Curve"
+    ax.set_title(name)
     ax.scatter(X, y)
 
 
-def plot_2d_classification(X: np.array, y: np.array, ax=None):
+def plot_2d_classification(X: np.array, y: np.array, ax=None, title=None):
     if X.shape[0] != y.shape[0]:
         raise Exception("plot_2d_classification: invalid shapes")
 
     if not ax:
         fig, ax = plt.subplots()
+    if not title:
+        title = "2D Classification"
 
     distincts = np.unique(y)
     for v in distincts:
@@ -24,32 +27,21 @@ def plot_2d_classification(X: np.array, y: np.array, ax=None):
         ax.scatter(X[indexes, 0], X[indexes, 1], label=f"Class {v}")
 
     plt.legend(loc="upper right")
-    ax.set_title("2D Classification dataset")
+    ax.set_title(title)
     ax.set_xlabel("Feature 1")
     ax.set_ylabel("Feature 2")
 
 
-def plot_decision_boundary(trues: np.array, falses: np.array, ax=None):
+def plot_decision_boundary(X: np.array, y: np.array, model:Model, ax=None):
     if not ax:
         fig, ax = plt.subplots()
 
-    ax.scatter(
-        [i for i in range(len(trues))],
-        trues,
-        s=len(trues),
-        c="b",
-        marker="o",
-        label="Trues",
-    )
-    ax.scatter(
-        [i for i in range(len(falses))],
-        falses,
-        s=len(falses),
-        c="r",
-        marker="s",
-        label="Falses",
-    )
+    x_min, x_max = X[:, 0].min(), X[:, 0].max()
+    y_min, y_max = X[:, 1].min(), X[:, 1].max()
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.01), np.arange(y_min, y_max, 0.01))
 
-    plt.legend(loc="upper right")
-    ax.set_title("Decision Boundary")
-    ax.set_ylabel("Predicted Probability")
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap='viridis')
+    ax.scatter(X[:, 0], X[:, 1], c=y, cmap='viridis', edgecolors='k', marker='o', s=100)
+

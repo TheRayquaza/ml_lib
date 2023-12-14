@@ -9,7 +9,7 @@ class Ridge(Model):
         self.learning_rate = learning_rate
         self.method = method
         self.alpha = alpha
-        if not method in ["default", "stochastic", "analytic"]:
+        if not method in ["default", "stochastic"]:
             raise Exception("Ridge: Unknown method", method)
 
     def __str__(self) -> str:
@@ -26,14 +26,11 @@ class Ridge(Model):
         self.tol = tol
         self.gradients = np.zeros((X.shape[1], 1))
         self.__finished = False
-        if self.method == "analytic":
-            self.__train_analytic()
-        else:
-            for epoch in range(epochs):
-                if self.__finished:
-                    self.__finished = False
-                    break
-                self.__train(epoch)
+        for epoch in range(epochs):
+            if self.__finished:
+                self.__finished = False
+                break
+            self.__train(epoch)
 
     def predict(self, X: np.array):
         if X.shape[1] != self.features:
@@ -80,15 +77,3 @@ class Ridge(Model):
             if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
                 self.__finished = True
             self.weights -= self.learning_rate / (epoch + 1) * self.gradients
-
-    def __train_analytic(self):
-        if not self.fitted:
-            raise Exception("Ridge: Model not fitted with data")
-        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise Exception(
-                "Ridge: Invalid shapes X", self.X.shape, "while y", self.y.shape
-            )
-        else:
-            self.weights = np.linalg.inv(
-                self.X.T.dot(self.X) + self.alpha * self.id
-            ).dot(self.X.T.dot(self.y))
