@@ -20,8 +20,8 @@ class PolynomialFeatures(Transformer):
             res.append(self.__generate_monomials(X[i]))
         return np.array(res)
 
-    def fit(self, X: np.array):
-        pass
+    def fit(self, X: np.array, y=None):
+        return self
 
-    def fit_transform(self, X: np.array) -> np.array:
+    def fit_transform(self, X: np.array, y=None) -> np.array:
         return self.transform(X)

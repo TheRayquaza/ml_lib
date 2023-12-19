@@ -3,17 +3,29 @@ import numpy as np
 import random
 
 
-class Ridge(Model):
-    def __init__(self, learning_rate=0.01, alpha=0.1, method="default"):
+class ElasticNet(Model):
+    def __init__(
+        self,
+        learning_rate=1e-4,
+        decay=1e-2,
+        alpha=0.1,
+        rho=1,
+        method="default",
+        random_state=None,
+    ):
+        random.seed(random_state)
         self.fitted = False
         self.learning_rate = learning_rate
+        self.initial_learning_reate = learning_rate
         self.method = method
+        self.decay = decay
         self.alpha = alpha
+        self.rho = rho
         if not method in ["default", "stochastic"]:
-            raise Exception("Ridge: Unknown method", method)
+            raise Exception("ElasticNet: Unknown method", method)
 
     def __str__(self) -> str:
-        return "Ridge"
+        return "ElasticNet"
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         self.X = X
@@ -23,8 +35,8 @@ class Ridge(Model):
         self.weights = np.random.randn(self.X.shape[1], 1)
         self.fitted = True
         self.epochs = epochs
-        self.tol = tol
         self.gradients = np.zeros((X.shape[1], 1))
+        self.tol = tol
         self.__finished = False
         for epoch in range(epochs):
             if self.__finished:
@@ -35,7 +47,7 @@ class Ridge(Model):
     def predict(self, X: np.array):
         if X.shape[1] != self.features:
             raise Exception(
-                "Ridge: Shape should be", self.features, "and not", X.shape[1]
+                "ElasticNet: Shape should be", self.features, "and not", X.shape[1]
             )
         else:
             return np.dot(X, self.weights)
@@ -49,21 +61,23 @@ class Ridge(Model):
                     self.X[rand_index : rand_index + 1].dot(self.weights)
                     - self.y[rand_index : rand_index + 1]
                 )
-                + 2 * self.alpha * self.weights
+                + 2 * self.alpha * np.sign(self.weights)
+                + self.alpha * self.rho * self.weights
             )
 
     def __compute_gradient(self):
         self.gradients = (
             2 * self.X.T.dot(self.X.dot(self.weights) - self.y)
-            + 2 * self.alpha * self.weights
+            + 2 * self.alpha * self.rho * np.sign(self.weights)
+            + self.alpha * self.rho * self.weights
         )
 
     def __train(self, epoch):
         if not self.fitted:
-            raise Exception("Ridge: Model not fitted with data")
+            raise Exception("ElasticNet: Model not fitted with data")
         elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
             raise Exception(
-                "Ridge: Invalid shapes Xshape",
+                "ElasticNet: Invalid shapes Xshape",
                 self.X.shape,
                 "while yshape",
                 self.y.shape,
@@ -76,4 +90,5 @@ class Ridge(Model):
                 self.__compute_stochastic_gradient()
             if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
                 self.__finished = True
-            self.weights -= self.learning_rate / (epoch + 1) * self.gradients
+            self.weights -= self.learning_rate * self.gradients
+            self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)

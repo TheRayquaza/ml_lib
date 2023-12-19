@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
-class Model:
+class Model(ABC):
     def __str__(self) -> str:
         return "Model"
 

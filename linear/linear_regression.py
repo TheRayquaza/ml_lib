@@ -1,23 +1,23 @@
 from classes.model import Model
 import numpy as np
 import random
-import math
-from scipy.special import expit
 
 
-class LogisticRegression(Model):
-    def __init__(self, learning_rate=1e-4, decay=1e-3, method="default", threshold=0.5):
+class LinearRegression(Model):
+    def __init__(
+        self, learning_rate=1e-4, decay=1e-3, method="default", random_state=None
+    ):
+        random.seed(random_state)
         self.fitted = False
         self.learning_rate = learning_rate
         self.initial_learning_reate = learning_rate
         self.decay = decay
         self.method = method
-        self.threshold = threshold
         if not method in ["default", "stochastic", "analytic"]:
-            raise Exception("LogisticRegression: Unknown method " + method)
+            raise Exception("LinearRegression: Unknown method " + method)
 
     def __str__(self) -> str:
-        return "LogisticRegression"
+        return "LinearRegression"
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         self.X = X
@@ -42,7 +42,7 @@ class LogisticRegression(Model):
         if X.shape[1] != self.features:
             raise Exception("Shape should be", self.features, "and not", X.shape[1])
         else:
-            return expit(np.dot(X, self.weights)) > self.threshold
+            return np.dot(X, self.weights)
 
     def __compute_stochastic_gradient(self):
         for m in range(self.X.shape[0]):
@@ -57,13 +57,10 @@ class LogisticRegression(Model):
 
     def __train(self, epoch):
         if not self.fitted:
-            raise Exception("LogisticRegression: not fitted")
+            raise Exception("Linear model not fitted with data")
         elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
             raise Exception(
-                "LogisticRegression: Invalid shapes X=",
-                self.X.shape,
-                "while y=",
-                self.y.shape,
+                "Invalid shapes Xshape", self.X.shape, "while yshape", self.y.shape
             )
         else:
             last_gradients = self.gradients
@@ -75,3 +72,16 @@ class LogisticRegression(Model):
                 self.__finished = True
             self.weights -= self.learning_rate * self.gradients
             self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
+
+    def __train_analytic(self):
+        if not self.fitted:
+            raise Exception("LinearRegression: Model not fitted with data")
+        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
+            raise Exception(
+                "LinearRegression: Invalid shapes Xshape",
+                self.X.shape,
+                "while yshape",
+                self.y.shape,
+            )
+        else:
+            self.weights = np.linalg.pinv(self.X).dot(self.y)

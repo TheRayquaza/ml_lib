@@ -4,12 +4,23 @@ import numpy as np
 
 
 class Pipeline(Model):
-    def __init__(self, steps=[]) -> None:
+    def __init__(self, steps=[]):
         self.steps = steps
+        self.__model = None
+        if len(steps) != 0:
+            self.__model = self.steps[-1][-1]
 
     def __str__(self) -> str:
         step_names = [name for name, _ in self.steps]
         return " -> ".join(step_names)
+
+    @property
+    def weights(self):
+        return self.__model.weights
+
+    @property
+    def model(self):
+        return self.__model
 
     def fit(self, X: np.array, y: np.array):
         for _, element in self.steps:
