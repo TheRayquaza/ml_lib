@@ -32,12 +32,12 @@ class LinearSVC(Model):
                 self.__finished = False
                 break
             self.__train(epoch)
+        return self
 
     def predict(self, X: np.array):
         if X.shape[1] != self.features:
             raise Exception("Shape should be", self.features, "and not", X.shape[1])
-        else:
-            return np.dot(X, self.weights) > 0
+        return np.dot(X, self.weights) > 0
 
     def __compute_gradient(self):
         self.gradients = np.zeros(self.weights.shape)

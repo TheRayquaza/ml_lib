@@ -1,6 +1,7 @@
 from classes.model import Model
 from tree.tree_node import TreeNode
 import numpy as np
+import random
 from metrics.classification_impurity import (
     gini_impurity,
     classification_impurity,
@@ -11,13 +12,27 @@ from multiprocessing import cpu_count
 
 
 class DecisionTreeClassifier(Model):
-    def __init__(self, max_depth=None, method="gini", n_jobs=None):
+    def __init__(
+        self,
+        max_depth=None,
+        method="gini",
+        n_jobs=None,
+        split="best",
+        random_state=None,
+    ):
+        random.seed(random_state)
         self.root = None
         self.max_depth = max_depth
         self.method = method
+        self.split = split
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
+        if not split in ["best", "random"]:
+            raise ValueError(f"DecisionTreeClassifier: Unknown split method {split}")
         if not method in ["gini", "entropy", "classification"]:
-            raise ValueError("DecisionTreeClassifier: Unknown method", method)
+            raise ValueError(f"DecisionTreeClassifier: Unknown method {method}")
+
+    def __str__(self):
+        return "DecisionTreeClassifier"
 
     def calculate_impurity(self, y: np.array) -> float:
         uniques, counts = np.unique(y, return_counts=True)
@@ -33,7 +48,11 @@ class DecisionTreeClassifier(Model):
         if depth == 0 or len(uniques) <= 1:
             return TreeNode(X, y, None, None, None)
 
-        feature, value, impurity_reduction = self.__find_best_split(X, y)
+        feature, value, impurity_reduction = 0, 0, 0
+        if self.split == "best":
+            feature, value, impurity_reduction = self.__find_best_split(X, y)
+        else:
+            feature, value, impurity_reduction = self.__find_random_split(X, y)
         root = TreeNode(X, y, impurity_reduction, feature, value)
         X_left, y_left, X_right, y_right = (
             np.zeros((0, X.shape[1])),
@@ -51,6 +70,28 @@ class DecisionTreeClassifier(Model):
         root.left = self.__build_tree(X_left, y_left, depth - 1 if depth else depth)
         root.right = self.__build_tree(X_right, y_right, depth - 1 if depth else depth)
         return root
+
+    def __find_random_split(self, X: np.array, y: np.array):
+        rd_feature = random.randint(0, X.shape[1] - 1)
+        rd_value = random.randint(0, X.shape[0] - 1)
+        rd_split_value = X[rd_value, rd_feature]
+
+        impurity = self.calculate_impurity(y)
+
+        left_indices = X[:, rd_feature] <= rd_split_value
+        right_indices = ~left_indices
+        y_left = y[left_indices].reshape(-1, 1)
+        y_right = y[right_indices].reshape(-1, 1)
+
+        impurity_left = self.calculate_impurity(y_left)
+        impurity_right = self.calculate_impurity(y_right)
+
+        weighted_impurity = (y_left.shape[0] / y.shape[0]) * impurity_left + (
+            y_right.shape[0] / y.shape[0]
+        ) * impurity_right
+        rd_impurity_reduction = impurity - weighted_impurity
+
+        return rd_feature, rd_split_value, rd_impurity_reduction
 
     def __find_best_split(self, X: np.array, y: np.array):
         best_feature = None
@@ -93,6 +134,8 @@ class DecisionTreeClassifier(Model):
         return current.select_value()
 
     def fit(self, X: np.array, y: np.array):
+        self.X = X
+        self.y = y
         self.root = self.__build_tree(X, y, self.max_depth)
         return self
 

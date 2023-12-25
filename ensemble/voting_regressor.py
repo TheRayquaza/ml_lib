@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 
 
-class VotingClassifier(Model):
+class VotingRegressor(Model):
     def __init__(
         self,
         estimators,
@@ -21,11 +21,11 @@ class VotingClassifier(Model):
         self.bootstrap = bootstrap
         if self.n_estimators <= 0:
             raise ValueError(
-                f"VotingClassifier: Unable to create {self.n_estimators} estimators"
+                f"VotingRegressor: Unable to create {self.n_estimators} estimators"
             )
 
     def __str__(self):
-        return "VotingClassifier"
+        return "VotingRegressor"
 
     def fit(self, X: np.array, y: np.array):
         self.__fitted = True
@@ -41,7 +41,7 @@ class VotingClassifier(Model):
             }
             for future in as_completed(future_to_pred):
                 if future.result() == None:
-                    raise Exception("VotingClassifier: Something went wrong")
+                    raise Exception("VotingRegressor: Something went wrong")
         return self
 
     def __make_prediction(self, model: Model, X: np.array) -> list:
@@ -60,15 +60,14 @@ class VotingClassifier(Model):
 
     def predict(self, X: np.array) -> np.array:
         if not self.__fitted:
-            raise Exception("VotingClassifier: not fitted")
+            raise Exception("VotingRegressor: not fitted")
         result = np.zeros((X.shape[0], 1))
         if not self.n_jobs:
             for i in range(X.shape[0]):
                 sub = []
                 for model in self.estimators:
                     sub.append(self.__make_prediction(model, X[i : i + 1]))
-                uniques, counts = np.unique(np.array(sub), return_counts=True)
-                result[i] = uniques[np.argmax(counts)]
+                result[i] = np.mean(np.array(sub))
         else:
             for i in range(X.shape[0]):
                 pool = ThreadPoolExecutor(max_workers=self.n_jobs)
@@ -79,6 +78,5 @@ class VotingClassifier(Model):
                 sub = []
                 for future in as_completed(future_to_pred):
                     sub.append(future.result())
-                uniques, counts = np.unique(np.array(sub), return_counts=True)
-                result[i] = uniques[np.argmax(counts)]
+                result[i] = np.mean(np.array(sub))
         return result

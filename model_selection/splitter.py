@@ -10,7 +10,7 @@ def train_test_split(X, y, test_size=0.2, random_state=None):
     random.seed(random_state)
     if X.shape[0] != y.shape[0] or y.shape[1] != 1:
         raise Exception("Invalid shapes")
-    L = random.sample(range(0, X.shape[0]), int(0.2 * X.shape[0]))
+    L = random.sample(range(0, X.shape[0]), int(test_size * X.shape[0]))
     X_test, y_test = [], []
     X_train, y_train = [], []
     for index in L:

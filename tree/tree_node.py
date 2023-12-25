@@ -22,8 +22,10 @@ class TreeNode:
         self.right = right
         self.mode = mode
         if not mode in ["classification", "regression"]:
-            raise ValueError(f"TreeNode: cannot instantiate node having unknown mode {mode}")
-        
+            raise ValueError(
+                f"TreeNode: cannot instantiate node having unknown mode {mode}"
+            )
+
     def select_value(self):
         if self.mode == "classification":
             uniques, counts = np.unique(self.y, return_counts=True)

@@ -28,7 +28,8 @@ class RidgeRegression(Model):
         self.epochs = epochs
         self.tol = tol
         self.gradients = np.zeros((X.shape[1], 1))
-        self.__finished = False
+        self.__fitted = True
+        self.__finished = True
         for epoch in range(epochs):
             if self.__finished:
                 self.__finished = False
@@ -36,6 +37,8 @@ class RidgeRegression(Model):
             self.__train(epoch)
 
     def predict(self, X: np.array):
+        if not self.__fitted:
+            raise Exception("RidgeRegression: model not fitted")
         if X.shape[1] != self.features:
             raise Exception(
                 "RidgeRegression: Shape should be", self.features, "and not", X.shape[1]
@@ -75,7 +78,7 @@ class RidgeRegression(Model):
             last_gradients = self.gradients
             if self.method == "default":
                 self.__compute_gradient()
-            elif self.method == "stochastic":
+            else:
                 self.__compute_stochastic_gradient()
             if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
                 self.__finished = True

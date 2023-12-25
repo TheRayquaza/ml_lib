@@ -1,66 +1,98 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from regression.elasticnet import ElasticNet
-from regression.lasso import Lasso
-from regression.linear import LinearModel
-from regression.ridge import Ridge
+
+from neural_net.deep_neural_net import (
+    DeepNeuralNetwork,
+    relu,
+    relu_prime,
+    sigmoid,
+    sigmoid_prime,
+    tanh,
+    tanh_prime,
+    id,
+    id_prime,
+)
+from linear.ridge_regression import RidgeRegression
+
 from preprocessing.scalers import StandardScaler, Normalizer
 from preprocessing.features_creation import PolynomialFeatures
+
 from composition.pipeline import Pipeline
+
 from graphic.curve import plot_2d_curve
 from dataset.generic import generate_linear_dataset, generate_polynomial_dataset
 from metrics.regression_metrics import mse
-from model_selection import train_test_split
+from model_selection.splitter import train_test_split
+
+layers = [1, 2, 1]
+features = 1
 
 pipelines = [
     Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("feature_creator", PolynomialFeatures(degree=2)),
-            ("model", LinearModel()),
+        steps=[
+            (
+                "DNN - SIGMOID",
+                DeepNeuralNetwork(
+                    layers,
+                    n_features=features,
+                    method="mini-batch",
+                    epochs=10,
+                    eta=1e-1,
+                    batch_size=100,
+                    activation=sigmoid,
+                    activation_prime=sigmoid_prime,
+                ),
+            )
         ]
     ),
     Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("feature_creator", PolynomialFeatures(degree=2)),
-            ("model", ElasticNet()),
+        steps=[
+            (
+                "DNN - TANH",
+                DeepNeuralNetwork(
+                    layers,
+                    n_features=features,
+                    method="mini-batch",
+                    epochs=10,
+                    eta=1e-1,
+                    batch_size=100,
+                    activation=tanh,
+                    activation_prime=tanh_prime,
+                ),
+            )
         ]
     ),
     Pipeline(
-        [
-            ("scaler", Normalizer()),
-            ("feature_creator", PolynomialFeatures(degree=2)),
-            ("model", Lasso()),
-        ]
-    ),
-    Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("feature_creator", PolynomialFeatures(degree=2)),
-            ("model", Ridge()),
+        steps=[
+            (
+                "DNN - RELU",
+                DeepNeuralNetwork(
+                    layers,
+                    n_features=features,
+                    method="mini-batch",
+                    epochs=10,
+                    eta=1e-1,
+                    batch_size=100,
+                    activation=relu,
+                    activation_prime=relu_prime,
+                ),
+            )
         ]
     ),
 ]
-
-# Rest of the code remains the same
-
 
 linear_datasets = [
-    generate_linear_dataset(3000),
-    generate_linear_dataset(3000, slope=5.0),
+    generate_linear_dataset(2500),
+    generate_linear_dataset(2500, slope=5.0),
 ]
 poly_datasets = [
-    generate_polynomial_dataset(3000, degree=2),
-    generate_polynomial_dataset(3000, degree=3),
-    generate_polynomial_dataset(3000, degree=5),
+    generate_polynomial_dataset(2500, degree=2),
 ]
 
 datasets = [
     ("Linear Dataset 1", linear_datasets[0]),
     ("Linear Dataset 2", linear_datasets[1]),
     ("Polynomial Dataset 2", poly_datasets[0]),
-    ("Polynomial Dataset 3", poly_datasets[1]),
 ]
 
 for dataset_name, (X, y) in datasets:

@@ -41,14 +41,14 @@ class LassoRegression(Model):
                 self.__finished = False
                 break
             self.__train(epoch)
+        return self
 
     def predict(self, X: np.array):
         if X.shape[1] != self.features:
             raise Exception(
                 "LassoRegression: Shape should be", self.features, "and not", X.shape[1]
             )
-        else:
-            return np.dot(X, self.weights)
+        return np.dot(X, self.weights)
 
     def __compute_stochastic_gradient(self):
         for m in range(self.X.shape[0]):

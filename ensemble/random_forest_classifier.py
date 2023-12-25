@@ -34,6 +34,9 @@ class RandomForestClassifier(Model):
             DecisionTreeClassifier(max_depth=max_depth, method=method, n_jobs=n_jobs)
         ] * n_estimators
 
+    def __str__(self):
+        return "RandomForestClassifier"
+
     def __bagging(self):
         L = []
         if not self.bootstrap:

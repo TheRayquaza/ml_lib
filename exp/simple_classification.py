@@ -1,33 +1,34 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataset.classification import generate_classification_dataset
-from tree.decision_tree_classifier import DecisionTreeClassifier
-from ensemble.random_forest_classifier import RandomForestClassifier
 
-from composition.pipeline import Pipeline
-from preprocessing.scalers import StandardScaler
+from neural_net.deep_neural_net import DeepNeuralNetwork, softmax
 
-from graphic.tree_graphivz import visualize_tree
-from graphic.curve import (
-    plot_2d_classification,
-    plot_decision_boundary,
-    plot_3d_classification,
-)
+from graphic.curve import plot_2d_classification, plot_decision_boundary
 from metrics.classification_metrics import (
     accuracy_score,
     precision_score,
     f1_score,
     recall_score,
 )
-from model_selection import train_test_split
+from model_selection.splitter import train_test_split
 
-random_forest_2 = RandomForestClassifier(n_estimators=2, max_depth=5, n_jobs=-1)
-random_forest_10 = RandomForestClassifier(n_estimators=10, max_depth=5, n_jobs=-1)
-decision_tree = DecisionTreeClassifier(max_depth=10, n_jobs=-1)
+features = 2
+classes = 3
 
-pipelines = [decision_tree, random_forest_2, random_forest_10]
+dnn = DeepNeuralNetwork(
+    layers=[features, 10, classes],
+    n_features=features,
+    method="mini-batch",
+    batch_size=10,
+    epochs=10,
+    last_activation=softmax,
+)
+pipelines = [dnn]
 
-X, y = generate_classification_dataset(n_samples=100, n_features=2, n_classes=2)
+X, y = generate_classification_dataset(
+    n_samples=250, n_features=features, n_classes=classes
+)
 
 fig, axes = plt.subplots(1 + 2 * len(pipelines))
 plt.legend("upper right")
@@ -51,7 +52,5 @@ for i in range(len(pipelines)):
     )
     plot_decision_boundary(X, y, model, ax=axes[2 * i + 2])
     print("")
-
-visualize_tree(decision_tree.root)
 
 plt.show()

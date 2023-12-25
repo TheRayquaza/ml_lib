@@ -43,6 +43,7 @@ class ElasticNet(Model):
                 self.__finished = False
                 break
             self.__train(epoch)
+        return self
 
     def predict(self, X: np.array):
         if X.shape[1] != self.features:
