@@ -12,7 +12,9 @@ from neural_net.deep_neural_net import (
     id,
     id_prime,
 )
+from linear.lasso_regression import LassoRegression
 from linear.ridge_regression import RidgeRegression
+from knn.knn_regressor import KNeighborsRegressor
 
 from preprocessing.scalers import StandardScaler, Normalizer
 from preprocessing.features_creation import PolynomialFeatures
@@ -29,64 +31,22 @@ features = 1
 
 pipelines = [
     Pipeline(
-        steps=[
-            (
-                "DNN - SIGMOID",
-                DeepNeuralNetwork(
-                    layers,
-                    n_features=features,
-                    method="mini-batch",
-                    epochs=10,
-                    eta=1e-1,
-                    batch_size=100,
-                    activation=sigmoid,
-                    activation_prime=sigmoid_prime,
-                ),
-            )
-        ]
+        steps=[("Scaler", StandardScaler()), ("LassoRegression", LassoRegression())]
     ),
     Pipeline(
         steps=[
-            (
-                "DNN - TANH",
-                DeepNeuralNetwork(
-                    layers,
-                    n_features=features,
-                    method="mini-batch",
-                    epochs=10,
-                    eta=1e-1,
-                    batch_size=100,
-                    activation=tanh,
-                    activation_prime=tanh_prime,
-                ),
-            )
-        ]
-    ),
-    Pipeline(
-        steps=[
-            (
-                "DNN - RELU",
-                DeepNeuralNetwork(
-                    layers,
-                    n_features=features,
-                    method="mini-batch",
-                    epochs=10,
-                    eta=1e-1,
-                    batch_size=100,
-                    activation=relu,
-                    activation_prime=relu_prime,
-                ),
-            )
+            ("StandardScaler", StandardScaler()),
+            ("KNN", KNeighborsRegressor(n_jobs=-1)),
         ]
     ),
 ]
 
 linear_datasets = [
-    generate_linear_dataset(2500),
-    generate_linear_dataset(2500, slope=5.0),
+    generate_linear_dataset(250),
+    generate_linear_dataset(250, slope=5.0),
 ]
 poly_datasets = [
-    generate_polynomial_dataset(2500, degree=2),
+    generate_polynomial_dataset(250, degree=2),
 ]
 
 datasets = [
@@ -111,10 +71,9 @@ for dataset_name, (X, y) in datasets:
         )
 
         # Training
-        pipeline.fit(X_train, y_train)
+        y_train_pred = pipeline.fit_predict(X_train, y_train)
 
         # Predictions
-        y_train_pred = pipeline.predict(X_train)
         y_test_pred = pipeline.predict(X_test)
 
         # Metrics
