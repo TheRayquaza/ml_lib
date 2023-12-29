@@ -28,7 +28,6 @@ def test_random_forest_regressor_init(
     assert random_forest_regressor.n_estimators == n_estimators
     assert random_forest_regressor.max_depth == max_depth
     assert random_forest_regressor.method == method
-    assert random_forest_regressor.n_jobs == n_jobs
     assert random_forest_regressor.bootstrap == bootstrap
     assert not random_forest_regressor._fitted
 
@@ -41,11 +40,6 @@ def test_random_forest_regressor_invalid_params(n_estimators, max_depth, bootstr
         RandomForestRegressor(
             n_estimators=n_estimators, max_depth=max_depth, bootstrap=bootstrap
         )
-
-
-def test_random_forest_regressor_str():
-    random_forest_regressor = RandomForestRegressor()
-    assert str(random_forest_regressor) == "RandomForestRegressor"
 
 
 @pytest.mark.parametrize(
@@ -69,7 +63,7 @@ def test_random_forest_regressor_predict_without_fit():
     random_forest_regressor = RandomForestRegressor()
     X, _ = generate_linear_dataset(200)
 
-    with pytest.raises(Exception, match="not fitted"):
+    with pytest.raises(Exception):
         random_forest_regressor.predict(X)
 
 

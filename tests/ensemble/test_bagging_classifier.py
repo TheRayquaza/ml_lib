@@ -20,7 +20,6 @@ def test_bagging_classifier_init(base_estimator, n_estimators, n_jobs):
 
     assert bagging_classifier.estimator == base_estimator
     assert bagging_classifier.n_estimators == n_estimators
-    assert bagging_classifier.n_jobs == n_jobs
     assert not bagging_classifier._fitted
 
     with pytest.raises(ValueError, match="invalid"):

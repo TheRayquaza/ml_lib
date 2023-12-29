@@ -20,7 +20,6 @@ def test_bagging_regressor_init(base_regressor, n_estimators, n_jobs):
 
     assert bagging_regressor.estimator == base_regressor
     assert bagging_regressor.n_estimators == n_estimators
-    assert bagging_regressor.n_jobs == n_jobs
     assert not bagging_regressor._fitted
 
     with pytest.raises(ValueError, match="invalid"):

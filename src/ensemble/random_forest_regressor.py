@@ -10,7 +10,7 @@ class RandomForestRegressor(Model):
         self,
         n_estimators=10,
         max_depth=None,
-        method="gini",
+        method="mse",
         n_jobs=None,
         bootstrap=True,
         random_state=None,
@@ -25,7 +25,7 @@ class RandomForestRegressor(Model):
         max_depth : int, optional
             The maximum depth of each decision tree (default is None, meaning unlimited depth).
         method : str, optional
-            The method used to split nodes in each decision tree, either "gini" or "entropy" (default is "gini").
+            The method used to split nodes in each decision tree, either "mse" or "mae" (default is "mse").
         n_jobs : int, optional
             The number of jobs to run in parallel during fitting and prediction (default is None).
         bootstrap : bool, optional
@@ -78,8 +78,7 @@ class RandomForestRegressor(Model):
                 L.append((model, self.X, self.y))
         else:
             for model in self.estimators:
-                size = np.random.randint(0, self.X.shape[0])
-                indexes = np.random.permutation(size)
+                indexes = np.random.randint(0, self.X.shape[0], self.X.shape[0])
                 L.append((model, self.X[indexes], self.y[indexes]))
         return L
 

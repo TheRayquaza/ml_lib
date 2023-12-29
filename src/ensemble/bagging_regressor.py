@@ -1,6 +1,5 @@
 from classes.model import Model
 import numpy as np
-import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 
@@ -21,7 +20,7 @@ class BaggingRegressor(Model):
         random_state : int, optional
             Random state for reproducibility (default is None).
         """
-        random.seed(random_state)
+        np.random.seed(random_state)
         self.estimator = estimator
         self.estimators = [estimator] * n_estimators  # Duplicate the estimator
         self.n_estimators = n_estimators
@@ -52,8 +51,7 @@ class BaggingRegressor(Model):
         """
         bag = []
         for model in self.estimators:
-            size = random.randint(0, self.X.shape[0])
-            indexes = np.random.permutation(size)
+            indexes = np.random.randint(0, self.X.shape[0], self.X.shape[0])
             bag.append((model, self.X[indexes], self.y[indexes]))
         return bag
 

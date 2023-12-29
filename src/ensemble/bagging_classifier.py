@@ -64,8 +64,7 @@ class BaggingClassifier(Model):
         """
         bag = []
         for model in self.estimators:
-            size = np.random.randint(0, self.X.shape[0])
-            indexes = np.random.permutation(size)
+            indexes = np.random.randint(0, self.X.shape[0], self.X.shape[0])
             bag.append((model, self.X[indexes], self.y[indexes]))
         return bag
 

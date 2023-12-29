@@ -78,8 +78,7 @@ class RandomForestClassifier(Model):
                 L.append((model, self.X, self.y))
         else:
             for model in self.estimators:
-                size = np.random.randint(0, self.X.shape[0])
-                indexes = np.random.permutation(size)
+                indexes = np.random.randint(0, self.X.shape[0], self.X.shape[0])
                 L.append((model, self.X[indexes], self.y[indexes]))
         return L
 
@@ -98,6 +97,7 @@ class RandomForestClassifier(Model):
         self.X = X
         self.y = y
         L = self._bagging()
+        self._fitted = True
 
         # Fit models either sequentially or in parallel
         if not self.n_jobs:

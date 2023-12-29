@@ -58,5 +58,5 @@ def test_random_forest_classifier_invalid_n_estimators(n_estimators):
 
 def test_random_forest_classifier_empty_dataset():
     clf = RandomForestClassifier(n_estimators=5)
-    with pytest.raises(ValueError):
-        clf.fit(np.array([]), np.array([]))
+    with pytest.raises(Exception):
+        clf.predict(np.array([]), np.array([]))

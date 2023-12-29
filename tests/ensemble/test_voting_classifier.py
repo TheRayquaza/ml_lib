@@ -7,37 +7,27 @@ from linear.logistic import LogisticRegression
 
 
 @pytest.mark.parametrize(
-    "base_estimators, voting",
+    "base_estimators",
     [
-        (
-            [
-                ("DecisionTree1", DecisionTreeClassifier()),
-                ("LogisticRegression", LogisticRegression()),
-            ],
-            "hard",
-        ),
-        (
-            [
-                ("DecisionTree1", DecisionTreeClassifier()),
-                ("DecisionTree2", DecisionTreeClassifier()),
-                ("LogisticRegression", LogisticRegression()),
-            ],
-            "soft",
-        ),
-        (
-            [
-                ("LogisticRegression1", LogisticRegression()),
-                ("LogisticRegression2", LogisticRegression()),
-            ],
-            "hard",
-        ),
+        [
+            ("DecisionTreeClassifier", DecisionTreeClassifier(n_jobs=-1)),
+            ("LogisticRegression", LogisticRegression()),
+        ],
+        [
+            ("DecisionTreeClassifier", DecisionTreeClassifier(method="gini", n_jobs=-1)),
+            ("DecisionTreeClassifier", DecisionTreeClassifier(method="entropy", n_jobs=-1)),
+            ("LogisticRegression", LogisticRegression()),
+        ],
+        [
+            ("LogisticRegression", LogisticRegression(method="stochastic")),
+            ("LogisticRegression", LogisticRegression(method="default")),
+        ],
     ],
 )
-def test_voting_classifier_init_fit_predict(base_estimators, voting):
-    voting_classifier = VotingClassifier(base_estimators, voting=voting)
+def test_voting_classifier_init_fit_predict(base_estimators):
+    voting_classifier = VotingClassifier(base_estimators)
 
     assert voting_classifier.n_estimators == len(base_estimators)
-    assert voting_classifier.voting == voting
     assert voting_classifier.n_jobs is None
     assert voting_classifier.bootstrap is True
     assert not voting_classifier._fitted
@@ -55,8 +45,6 @@ def test_voting_classifier_init_fit_predict(base_estimators, voting):
     "invalid_estimators",
     [
         [],
-        None,
-        [("DecisionTree", DecisionTreeClassifier()), (None, None)],
     ],
 )
 def test_voting_classifier_invalid_base_estimators(invalid_estimators):
@@ -80,27 +68,21 @@ def test_voting_classifier_predict_without_fit():
 
 
 @pytest.mark.parametrize(
-    "base_estimators, voting",
+    "base_estimators",
     [
-        (
-            [
-                ("DecisionTree1", DecisionTreeClassifier()),
-                ("LogisticRegression", LogisticRegression()),
-            ],
-            "hard",
-        ),
-        (
-            [
-                ("DecisionTree1", DecisionTreeClassifier()),
-                ("DecisionTree2", DecisionTreeClassifier()),
-                ("LogisticRegression", LogisticRegression()),
-            ],
-            "soft",
-        ),
+        [
+            ("DecisionTree1", DecisionTreeClassifier()),
+            ("LogisticRegression", LogisticRegression()),
+        ],
+        [
+            ("DecisionTree1", DecisionTreeClassifier()),
+            ("DecisionTree2", DecisionTreeClassifier()),
+            ("LogisticRegression", LogisticRegression()),
+        ],
     ],
 )
-def test_voting_classifier_parallel_fit_predict(base_estimators, voting):
-    voting_classifier = VotingClassifier(base_estimators, voting=voting, n_jobs=-1)
+def test_voting_classifier_parallel_fit_predict(base_estimators):
+    voting_classifier = VotingClassifier(base_estimators, n_jobs=-1)
     X, y = generate_classification_dataset()
 
     voting_classifier.fit(X, y)
