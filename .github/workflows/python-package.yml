@@ -43,4 +43,4 @@ jobs:
         # Install module before running
         cd src && pip install .
         # Run tests
-        pytest tests
+        cd .. && pytest tests
