@@ -26,9 +26,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        # Installing deps
+        sudo apt-get install python3-dev graphviz libgraphviz-dev pkg-config
+        # Installing python deps
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest
-        pip install -r requirements.txt
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -38,4 +40,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest tests
+        # Install module before running
+        cd src && pip install .
+        # Run tests
+        cd .. && pytest tests
