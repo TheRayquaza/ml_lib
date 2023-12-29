@@ -48,6 +48,8 @@ class KNeighborsRegressor(Model):
         self : KNeighborsRegressor
             Returns the instance itself.
         """
+        self.X = X
+        self.y = y
         self.classes = np.unique(self.y)
         self._fitted = True
         return self

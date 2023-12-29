@@ -10,6 +10,7 @@ class SoftmaxRegression(Model):
         decay=1e-3,
         method="default",
         threshold=0.5,
+        batch_size=32,
         random_state=None,
     ):
         np.random.seed(random_state)
@@ -19,8 +20,9 @@ class SoftmaxRegression(Model):
         self.decay = decay
         self.method = method
         self.threshold = threshold
-        if not method in ["default", "stochastic"]:
-            raise Exception("LogisticRegression: Unknown method " + method)
+        self.batch_size = batch_size
+        if not method in ["default", "stochastic", "mini-batch"]:
+            raise Exception(f"LogisticRegression: Unknown method {method}")
 
     def __str__(self) -> str:
         return "LogisticRegression"

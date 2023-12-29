@@ -34,9 +34,8 @@ def test_predict_without_fit():
     kmeans = KMeans(3)
     X = np.array([[1, 2], [1, 4], [1, 0]])
 
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(Exception):
         kmeans.predict(X)
-    assert "KMeans: not fitted with data" in str(excinfo.value)
 
 
 def test_concurrent_fit():

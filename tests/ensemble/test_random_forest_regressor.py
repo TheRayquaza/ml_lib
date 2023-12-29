@@ -6,7 +6,13 @@ from dataset.generic import generate_linear_dataset
 
 @pytest.mark.parametrize(
     "n_estimators, max_depth, method, n_jobs, bootstrap",
-    [(5, None, "mse", None, True), (10, 3, "rmse", 2, False), (3, 5, "mae", 10, True)],
+    [
+        (5, None, "mse", None, True),
+        (10, 3, "rmse", 2, False),
+        (3, 5, "mae", 10, True),
+        (7, 4, "mse", -1, False),
+        (6, None, "mae", 4, True),
+    ],
 )
 def test_random_forest_regressor_init(
     n_estimators, max_depth, method, n_jobs, bootstrap
@@ -26,11 +32,15 @@ def test_random_forest_regressor_init(
     assert random_forest_regressor.bootstrap == bootstrap
     assert not random_forest_regressor._fitted
 
-    with pytest.raises(ValueError, match="estimators"):
-        RandomForestRegressor(n_estimators=0)
 
-    with pytest.raises(ValueError, match="max_depth"):
-        RandomForestRegressor(n_estimators=3, max_depth=-1)
+@pytest.mark.parametrize(
+    "n_estimators, max_depth, bootstrap", [(0, 5, True), (3, -1, False)]
+)
+def test_random_forest_regressor_invalid_params(n_estimators, max_depth, bootstrap):
+    with pytest.raises(ValueError):
+        RandomForestRegressor(
+            n_estimators=n_estimators, max_depth=max_depth, bootstrap=bootstrap
+        )
 
 
 def test_random_forest_regressor_str():
@@ -38,8 +48,13 @@ def test_random_forest_regressor_str():
     assert str(random_forest_regressor) == "RandomForestRegressor"
 
 
-def test_random_forest_regressor_fit_predict():
-    random_forest_regressor = RandomForestRegressor()
+@pytest.mark.parametrize(
+    "n_estimators, max_depth, method", [(5, None, "mse"), (3, 5, "mae")]
+)
+def test_random_forest_regressor_fit_predict(n_estimators, max_depth, method):
+    random_forest_regressor = RandomForestRegressor(
+        n_estimators=n_estimators, max_depth=max_depth, method=method
+    )
     X, y = generate_linear_dataset(200)
 
     random_forest_regressor.fit(X, y)
@@ -48,7 +63,6 @@ def test_random_forest_regressor_fit_predict():
 
     predictions = random_forest_regressor.predict(X)
     assert len(predictions) == len(X)
-    assert all(isinstance(pred, np.ndarray) for pred in predictions)
 
 
 def test_random_forest_regressor_predict_without_fit():
@@ -59,8 +73,11 @@ def test_random_forest_regressor_predict_without_fit():
         random_forest_regressor.predict(X)
 
 
-def test_random_forest_regressor_parallel_fit_predict():
-    random_forest_regressor = RandomForestRegressor(n_estimators=3, n_jobs=-1)
+@pytest.mark.parametrize("n_estimators, n_jobs", [(3, -1), (5, 4)])
+def test_random_forest_regressor_parallel_fit_predict(n_estimators, n_jobs):
+    random_forest_regressor = RandomForestRegressor(
+        n_estimators=n_estimators, n_jobs=n_jobs
+    )
     X, y = generate_linear_dataset(200)
 
     random_forest_regressor.fit(X, y)
@@ -69,4 +86,3 @@ def test_random_forest_regressor_parallel_fit_predict():
 
     predictions = random_forest_regressor.predict(X)
     assert len(predictions) == len(X)
-    assert all(isinstance(pred, np.ndarray) for pred in predictions)

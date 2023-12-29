@@ -3,35 +3,55 @@ import pytest
 from linear.ridge_regression import RidgeRegression
 
 
-def test_initialization():
-    model = RidgeRegression(learning_rate=0.01, alpha=0.1, method="default")
-    assert model.learning_rate == 0.01
-    assert model.alpha == 0.1
-    assert model.method == "default"
-    assert not model.fitted
+@pytest.mark.parametrize(
+    "learning_rate, alpha, method",
+    [
+        (0.01, 0.1, "default"),
+        (0.005, 0.05, "mini-batch"),
+        (0.02, 0.2, "stochastic"),
+        (0.015, 0.15, "mini-batch"),
+    ],
+)
+def test_initialization(learning_rate, alpha, method):
+    model = RidgeRegression(learning_rate=learning_rate, alpha=alpha, method=method)
+    assert model.learning_rate == learning_rate
+    assert model.alpha == alpha
+    assert model.method == method
+    assert not model._fitted
 
 
-def test_fit():
-    X = np.array([[1, 2], [3, 4]])
-    y = np.array([[0], [1]])
+@pytest.mark.parametrize(
+    "X, y",
+    [
+        (np.array([[1, 2], [3, 4]]), np.array([[0], [1]])),
+        (np.array([[0.5, 1], [2, 3.5]]), np.array([[1], [0]])),
+    ],
+)
+def test_fit(X, y):
     model = RidgeRegression()
     model.fit(X, y)
-    assert model.fitted
-    assert model.weights.shape == (2, 1)
+    assert model._fitted
+    assert model.weights.shape == (X.shape[1], 1)
 
 
-def test_predict():
-    X = np.array([[1, 2], [3, 4]])
-    y = np.array([[0], [1]])
+@pytest.mark.parametrize(
+    "X, y, expected_shape",
+    [
+        (np.array([[1, 2], [3, 4]]), np.array([[0], [1]]), (2, 1)),
+        (np.array([[0.5, 1], [2, 3.5]]), np.array([[1], [0]]), (2, 1)),
+    ],
+)
+def test_predict(X, y, expected_shape):
     model = RidgeRegression()
     model.fit(X, y)
     predictions = model.predict(X)
-    assert predictions.shape == (2, 1)
+    assert predictions.shape == expected_shape
 
 
-def test_invalid_method():
+@pytest.mark.parametrize("method", ["unknown", "mini", None])
+def test_invalid_method(method):
     with pytest.raises(ValueError):
-        RidgeRegression(method="invalid_method")
+        RidgeRegression(method=method)
 
 
 def test_predict_unfitted():

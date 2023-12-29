@@ -7,15 +7,20 @@ from ensemble.bagging_regressor import BaggingRegressor
 
 
 @pytest.mark.parametrize(
-    "base_regressor", [DecisionTreeRegressor(), LinearRegression()]
+    "base_regressor, n_estimators, n_jobs",
+    [
+        (DecisionTreeRegressor(max_depth=3), 5, None),
+        (LinearRegression(), 10, -1),
+        (DecisionTreeRegressor(max_depth=5), 3, 2),
+        (LinearRegression(), 7, None),
+    ],
 )
-def test_bagging_regressor_init(base_regressor):
-    n_estimators = 5
-    bagging_regressor = BaggingRegressor(base_regressor, n_estimators)
+def test_bagging_regressor_init(base_regressor, n_estimators, n_jobs):
+    bagging_regressor = BaggingRegressor(base_regressor, n_estimators, n_jobs=n_jobs)
 
     assert bagging_regressor.estimator == base_regressor
     assert bagging_regressor.n_estimators == n_estimators
-    assert bagging_regressor.n_jobs is None
+    assert bagging_regressor.n_jobs == n_jobs
     assert not bagging_regressor._fitted
 
     with pytest.raises(ValueError, match="invalid"):
@@ -34,10 +39,16 @@ def test_bagging_regressor_str(base_regressor):
 
 
 @pytest.mark.parametrize(
-    "base_regressor", [DecisionTreeRegressor(), LinearRegression()]
+    "base_regressor, n_estimators, n_jobs",
+    [
+        (DecisionTreeRegressor(max_depth=3), 5, None),
+        (LinearRegression(), 10, -1),
+        (DecisionTreeRegressor(max_depth=5), 3, 2),
+        (LinearRegression(), 7, None),
+    ],
 )
-def test_bagging_regressor_fit_predict(base_regressor):
-    bagging_regressor = BaggingRegressor(base_regressor)
+def test_bagging_regressor_fit_predict(base_regressor, n_estimators, n_jobs):
+    bagging_regressor = BaggingRegressor(base_regressor, n_estimators, n_jobs=n_jobs)
 
     X, y = generate_linear_dataset(200)
 
@@ -62,11 +73,16 @@ def test_bagging_regressor_predict_without_fit(base_regressor):
 
 
 @pytest.mark.parametrize(
-    "base_regressor", [DecisionTreeRegressor(), LinearRegression()]
+    "base_regressor, n_estimators, n_jobs",
+    [
+        (DecisionTreeRegressor(max_depth=3), 5, -1),
+        (LinearRegression(), 10, 4),
+        (DecisionTreeRegressor(max_depth=5), 3, 2),
+        (LinearRegression(), 7, None),
+    ],
 )
-def test_bagging_regressor_parallel_fit_predict(base_regressor):
-    n_estimators = 3
-    bagging_regressor = BaggingRegressor(base_regressor, n_estimators, n_jobs=-1)
+def test_bagging_regressor_parallel_fit_predict(base_regressor, n_estimators, n_jobs):
+    bagging_regressor = BaggingRegressor(base_regressor, n_estimators, n_jobs=n_jobs)
 
     X, y = generate_linear_dataset(200)
 

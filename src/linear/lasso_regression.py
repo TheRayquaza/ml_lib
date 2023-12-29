@@ -1,5 +1,6 @@
 from classes.model import Model
 import numpy as np
+from metrics.regression_metrics import mse
 
 
 class LassoRegression(Model):
@@ -7,31 +8,31 @@ class LassoRegression(Model):
         self,
         learning_rate=1e-4,
         decay=1e-2,
-        alpha=0.1,
+        alpha=1e-1,
         method="default",
+        batch_size=32,
         random_state=None,
+        verbose=False,
     ):
         """
         Initialize the LassoRegression model.
 
         Parameters
         ----------
-        learning_rate : float
-            The learning rate for gradient descent.
-        decay : float
-            The decay rate for learning rate scheduling.
-        alpha : float
-            The regularization strength.
-        method : str
-            The optimization method ("default", "stochastic" or "mini-batch").
-        random_state : int or None
-            Seed for the random number generator.
+        learning_rate (float, optional): The learning rate for gradient descent.
+        decay (float, optional): The decay rate for learning rate scheduling.
+        alpha (float, optional): The regularization strength.
+        method (str, optional): The optimization method ("default", "stochastic" or "mini-batch").
+        random_state (int, optional): Seed for the random number generator.
+        verbose (bool): Whether the verbose mode should be activated
         """
         np.random.seed(random_state)
         self.learning_rate = learning_rate
         self.decay = decay
         self.alpha = alpha
         self.method = method
+        self.batch_size = batch_size
+        self.verbose = verbose
         self.initial_learning_reate = learning_rate
         self._fitted = False
         if not method in ["default", "stochastic", "mini-batch"]:
@@ -59,12 +60,12 @@ class LassoRegression(Model):
             )
             for i in range(0, self.X.shape[0], self.batch_size)
         ]
-        res = np.zeros((self.X.shape[0], 1))
+        gradients = np.zeros((self.X.shape[1], 1))
         for X_batch, y_batch in mini_batches:
-            res += 2 * X_batch.T.dot(
-                X_batch.dot(self.weights) - y_batch
+            gradients += 2 * np.dot(
+                X_batch.T, np.dot(X_batch, self.weights - y_batch)
             ) + 2 * self.alpha * np.sign(self.weights)
-        return res / self.X.shape[0]
+        return gradients / len(mini_batches)
 
     def _compute_stochastic_gradient(self) -> np.ndarray:
         """
@@ -75,12 +76,13 @@ class LassoRegression(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        res = np.zeros((self.X.shape[0], 1))
+        gradients = np.zeros((self.X.shape[1], 1))
         for m in range(self.X.shape[0]):
-            res += 2 * self.X[m : m + 1].T.dot(
-                self.X[m : m + 1].dot(self.weights) - self.y[m : m + 1]
+            gradients += 2 * np.dot(
+                self.X[m : m + 1].T,
+                np.dot(self.X[m : m + 1], self.weights) - self.y[m : m + 1],
             ) + 2 * self.alpha * np.sign(self.weights)
-        return res / self.X.shape[0]
+        return gradients / self.X.shape[0]
 
     def _compute_gradient(self) -> np.ndarray:
         """
@@ -91,8 +93,8 @@ class LassoRegression(Model):
             np.ndarray:
                 The full gradient
         """
-        return 2 * self.X.T.dot(
-            self.X.dot(self.weights) - self.y
+        return 2 * np.dot(
+            self.X.T, np.dot(self.X, self.weights) - self.y
         ) + 2 * self.alpha * np.sign(self.weights)
 
     def _train(self, epoch: int):
@@ -118,7 +120,7 @@ class LassoRegression(Model):
                 self.gradients = self._compute_stochastic_gradient()
             else:
                 self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
+            if abs(np.sum(last_gradients - self.gradients)) <= self.tol:
                 self._finished = True
             self.weights -= self.learning_rate * self.gradients
             self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
@@ -151,13 +153,15 @@ class LassoRegression(Model):
         self.gradients = np.zeros((X.shape[1], 1))
         self.tol = tol
         self._finished = False
+        self._fitted = True
         if epochs < 0:
             raise ValueError(f"LassoRegression: invalid number of epochs {epochs}")
-        self._fitted = True
         for epoch in range(epochs):
             if self._finished:
                 break
             self._train(epoch)
+            if self.verbose:
+                print(f"MSE epoch {epoch}: {mse(y, self.predict(X))}")
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

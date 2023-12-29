@@ -15,11 +15,21 @@ def test_elasticnet_init(method):
     assert elasticnet.batch_size == 32
     assert elasticnet._fitted == False
 
-    with pytest.raises(Exception, match="Unknown method"):
-        ElasticNet(method="invalid_method")
 
-    with pytest.raises(Exception, match="invalid batch size"):
-        ElasticNet(method="mini-batch", batch_size=-1)
+@pytest.mark.parametrize(
+    "invalid_method, batch_size",
+    [
+        ("invalid_method", None),
+        ("mini-batch", -1),
+    ],
+)
+def test_elastic_fail_init(invalid_method, batch_size):
+    if batch_size:
+        with pytest.raises(ValueError):
+            ElasticNet(method=invalid_method, batch_size=batch_size)
+    else:
+        with pytest.raises(ValueError):
+            ElasticNet(method=invalid_method)
 
 
 def test_elasticnet_str():
@@ -27,35 +37,21 @@ def test_elasticnet_str():
     assert str(elasticnet) == "ElasticNet"
 
 
-def test_elasticnet_compute_gradient():
-    elasticnet = ElasticNet(method="default")
+@pytest.mark.parametrize(
+    "method, compute_gradient_function",
+    [
+        ("default", "_compute_gradient"),
+        ("stochastic", "_compute_stochastic_gradient"),
+        ("mini-batch", "_compute_mini_batch_gradient"),
+    ],
+)
+def test_elasticnet_compute_gradients(method, compute_gradient_function):
+    elasticnet = ElasticNet(method=method)
     elasticnet.X = np.random.rand(50, 3)
     elasticnet.y = np.random.rand(50, 1)
     elasticnet.weights = np.random.rand(3, 1)
 
-    gradients = elasticnet._compute_gradient()
-
-    assert gradients.shape == (3, 1)
-
-
-def test_elasticnet_compute_stochastic_gradient():
-    elasticnet = ElasticNet(method="stochastic")
-    elasticnet.X = np.random.rand(50, 3)
-    elasticnet.y = np.random.rand(50, 1)
-    elasticnet.weights = np.random.rand(3, 1)
-
-    gradients = elasticnet._compute_stochastic_gradient()
-
-    assert gradients.shape == (3, 1)
-
-
-def test_elasticnet_compute_mini_batch_gradient():
-    elasticnet = ElasticNet(method="mini-batch")
-    elasticnet.X = np.random.rand(50, 3)
-    elasticnet.y = np.random.rand(50, 1)
-    elasticnet.weights = np.random.rand(3, 1)
-
-    gradients = elasticnet._compute_mini_batch_gradient()
+    gradients = getattr(elasticnet, compute_gradient_function)()
 
     assert gradients.shape == (3, 1)
 

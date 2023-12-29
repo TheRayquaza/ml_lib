@@ -1,7 +1,7 @@
 from classes.model import Model
 import numpy as np
 from scipy.special import expit
-
+from metrics.regression_metrics import mse
 
 class LogisticRegression(Model):
     def __init__(
@@ -10,7 +10,9 @@ class LogisticRegression(Model):
         decay=1e-3,
         method="default",
         threshold=0.5,
+        batch_size=32,
         random_state=None,
+        verbose=False
     ):
         """
         Initializes the Logistic Regression model with specified parameters.
@@ -22,6 +24,7 @@ class LogisticRegression(Model):
             method (str): The method for training.
             threshold (float): Threshold for converting predicted probabilities to class labels.
             random_state (int, optional): The seed for random number generator.
+            verbose (bool, optional): Whether the verbose mode should be activated.
         """
         np.random.seed(random_state)
         self.learning_rate = learning_rate
@@ -29,6 +32,8 @@ class LogisticRegression(Model):
         self.decay = decay
         self.method = method
         self.threshold = threshold
+        self.batch_size = batch_size
+        self.verbose = verbose
         self._fitted = False
         if not method in ["default", "stochastic", "mini-batch"]:
             raise ValueError(f"LogisticRegression: Unknown method {method}")
@@ -54,10 +59,10 @@ class LogisticRegression(Model):
             )
             for i in range(0, self.X.shape[0], self.batch_size)
         ]
-        res = np.zeros((self.X.shape[0], 1))
+        res = np.zeros((self.X.shape[1], 1))
         for X_batch, y_batch in mini_batches:
-            res += 2 * X_batch.T.dot(X_batch.dot(self.weights) - y_batch)
-        return res / self.X.shape[0]
+            res += 2 * np.dot(X_batch.T, np.dot(X_batch, self.weights) - y_batch)
+        return res / len(mini_batches)
 
     def _compute_stochastic_gradient(self) -> np.ndarray:
         """
@@ -68,10 +73,10 @@ class LogisticRegression(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        res = np.zeros((self.X.shape[0], 1))
+        res = np.zeros((self.X.shape[1], 1))
         for m in range(self.X.shape[0]):
-            res += 2 * self.X[m : m + 1].T.dot(
-                self.X[m : m + 1].dot(self.weights) - self.y[m : m + 1]
+            res += 2 * np.dot(self.X[m : m + 1].T,
+                np.dot(self.X[m : m + 1], self.weights) - self.y[m : m + 1]
             )
         return res / self.X.shape[0]
 
@@ -84,7 +89,7 @@ class LogisticRegression(Model):
             np.ndarray:
                 The full gradient
         """
-        return 2 * self.X.T.dot(self.X.dot(self.weights) - self.y)
+        return 2 * np.dot(self.X.T, np.dot(self.X, self.weights) - self.y)
 
     def _train(self, epoch: int):
         """
@@ -141,6 +146,8 @@ class LogisticRegression(Model):
                 self._finished = False
                 break
             self._train(epoch)
+            if self.verbose:
+                print(f"MSE epoch {epoch}: {mse(y, self.predict(X))}")
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -158,7 +165,7 @@ class LogisticRegression(Model):
         if not self._fitted:
             raise Exception("LogisticRegression: model not fitted")
         if X.shape[1] != self.features:
-            raise Exception(
+            raise ValueError(
                 f"LogisticRegression: shape should be {self.features} and not {X.shape[1]}"
             )
         return expit(np.dot(X, self.weights)) > self.threshold

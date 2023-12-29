@@ -1,5 +1,6 @@
 from classes.model import Model
 import numpy as np
+from metrics.regression_metrics import mse
 
 
 class ElasticNet(Model):
@@ -7,11 +8,12 @@ class ElasticNet(Model):
         self,
         learning_rate=1e-4,
         decay=1e-2,
-        alpha=0.1,
+        alpha=1e-1,
         rho=1,
         method="default",
         batch_size=32,
         random_state=None,
+        verbose=False
     ):
         """
         Initialize the ElasticNet model.
@@ -32,6 +34,8 @@ class ElasticNet(Model):
             The batch size, will be used if the method is "mini-batch" (default is 32)
         random_state : int, optional
             Seed for random number generation (default is None).
+        verbose: bool, optional
+            Whether the verbose should be activated
         """
         np.random.seed(random_state)
         self.learning_rate = learning_rate
@@ -39,13 +43,14 @@ class ElasticNet(Model):
         self.alpha = alpha
         self.rho = rho
         self.method = method
+        self.verbose = verbose
         self.initial_learning_reate = learning_rate
         self.batch_size = batch_size
         self._fitted = False
         if not method in ["default", "stochastic", "mini-batch"]:
-            raise Exception(f"ElasticNet: Unknown method {method}")
+            raise ValueError(f"ElasticNet: Unknown method {method}")
         if self.batch_size <= 0 and method == "mini-batch":
-            raise Exception(f"ElasticNet: invalid batch size {batch_size}")
+            raise ValueError(f"ElasticNet: invalid batch size {batch_size}")
 
     def __str__(self) -> str:
         return "ElasticNet"
@@ -59,12 +64,12 @@ class ElasticNet(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        res = np.zeros((self.X.shape[0], 1))
+        res = np.zeros((self.X.shape[1], 1))
         for m in range(self.X.shape[0]):
             res += (
                 2
-                * self.X[m : m + 1].T.dot(
-                    self.X[m : m + 1].dot(self.weights) - self.y[m : m + 1]
+                * np.dot(self.X[m : m + 1].T,
+                    np.dot(self.X[m : m + 1], self.weights) - self.y[m : m + 1]
                 )
                 + 2 * self.alpha * np.sign(self.weights)
                 + self.alpha * self.rho * self.weights
@@ -90,10 +95,10 @@ class ElasticNet(Model):
             )
             for i in range(0, self.X.shape[0], self.batch_size)
         ]
-        res = np.zeros((self.X.shape[0], 1))
+        res = np.zeros((self.X.shape[1], 1))
         for X_batch, y_batch in mini_batches:
             res += (
-                2 * X_batch.T.dot(X_batch.dot(self.weights) - y_batch)
+                2 * np.dot(X_batch.T, np.dot(X_batch, self.weights) - y_batch)
                 + 2 * self.alpha * np.sign(self.weights)
                 + self.alpha * self.rho * self.weights
             )
@@ -109,7 +114,7 @@ class ElasticNet(Model):
                 The full gradient
         """
         return (
-            2 * self.X.T.dot(self.X.dot(self.weights) - self.y)
+            2 * np.dot(self.X.T, np.dot(self.X, self.weights) - self.y)
             + 2 * self.alpha * self.rho * np.sign(self.weights)
             + self.alpha * self.rho * self.weights
         )
@@ -137,7 +142,7 @@ class ElasticNet(Model):
                 self.gradients = self._compute_stochastic_gradient()
             else:
                 self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
+            if abs(np.sum(last_gradients - self.gradients)) <= self.tol:
                 self._finished = True
             self.weights -= self.learning_rate * self.gradients
             self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
@@ -164,7 +169,6 @@ class ElasticNet(Model):
         """
         self.X = X
         self.y = y
-        self.id = np.identity(X.shape[1])
         self.features = X.shape[1]
         self.weights = np.random.randn(self.X.shape[1], 1)
         self.epochs = epochs
@@ -177,6 +181,8 @@ class ElasticNet(Model):
                 self._finished = False
                 break
             self._train(epoch)
+            if self.verbose:
+                print(f"MSE epoch {epoch}: {mse(y, self.predict(X))}")
         return self
 
     def predict(self, X: np.ndarray):

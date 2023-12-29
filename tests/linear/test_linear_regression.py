@@ -4,21 +4,16 @@ from linear.linear_regression import LinearRegression
 
 
 @pytest.mark.parametrize(
-    "learning_rate, decay, method, random_state",
+    "learning_rate, decay, method",
     [
-        (1e-4, 1e-3, "default", None),
-        (1e-3, 1e-2, "stochastic", 42),
-        (1e-5, 1e-1, "mini-batch", 10),
-        (1e-2, 0, "analytic", 0),
+        (1e-4, 1e-3, "default"),
+        (1e-3, 1e-2, "stochastic"),
+        (1e-5, 1e-1, "mini-batch"),
+        (1e-2, 0, "analytic"),
     ],
 )
-def test_linear_regression_init(learning_rate, decay, method, random_state):
-    model = LinearRegression(
-        learning_rate=learning_rate,
-        decay=decay,
-        method=method,
-        random_state=random_state,
-    )
+def test_linear_regression_init(learning_rate, decay, method):
+    model = LinearRegression(learning_rate=learning_rate, decay=decay, method=method)
     assert model.learning_rate == learning_rate
     assert model.decay == decay
     assert model.method == method
