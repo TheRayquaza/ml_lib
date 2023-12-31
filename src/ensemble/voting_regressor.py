@@ -11,6 +11,7 @@ class VotingRegressor(Model):
         n_jobs=None,
         bootstrap=True,
         random_state=None,
+        name="VotingRegressor"
     ):
         """
         Initialize the VotingRegressor.
@@ -25,22 +26,19 @@ class VotingRegressor(Model):
             Whether to use bootstrap samples for training each estimator (default is True).
         random_state : int, optional
             Random state for reproducibility (default is None).
+        name : str, optional
+            The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
         self.estimators = estimators
         self.n_estimators = len(self.estimators)
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
-        self._fitted = False
         self.bootstrap = bootstrap
 
-        # Validate the number of estimators
         if self.n_estimators <= 0:
             raise ValueError(
                 f"VotingRegressor: Unable to create {self.n_estimators} estimators"
             )
-
-    def __str__(self):
-        return "VotingRegressor"
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         """
@@ -53,11 +51,8 @@ class VotingRegressor(Model):
         y : np.ndarray
             Target values.
         """
-        self._fitted = True
-        self.X = X
-        self.y = y
+        super().fit(X, y)
 
-        # Fit models either sequentially or in parallel
         if not self.n_jobs:
             for name, model in self.estimators:
                 model.fit(X, y)
@@ -114,17 +109,19 @@ class VotingRegressor(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("VotingRegressor: not fitted")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        
+        samples = X.shape[0]
+        result = np.zeros((samples))
+    
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 sub = []
                 for model in self.estimators:
                     sub.append(self._make_prediction(model, X[i : i + 1]))
                 result[i] = np.mean(np.array(sub))
         else:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 pool = ThreadPoolExecutor(max_workers=self.n_jobs)
                 future_to_pred = {
                     pool.submit(self._make_prediction, model, X[i : i + 1]): model

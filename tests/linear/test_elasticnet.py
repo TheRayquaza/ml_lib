@@ -31,12 +31,6 @@ def test_elastic_fail_init(invalid_method, batch_size):
         with pytest.raises(ValueError):
             ElasticNet(method=invalid_method)
 
-
-def test_elasticnet_str():
-    elasticnet = ElasticNet()
-    assert str(elasticnet) == "ElasticNet"
-
-
 @pytest.mark.parametrize(
     "method, compute_gradient_function",
     [

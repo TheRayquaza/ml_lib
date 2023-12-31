@@ -12,7 +12,8 @@ class LogisticRegression(Model):
         threshold=0.5,
         batch_size=32,
         random_state=None,
-        verbose=False
+        verbose=False,
+        name="LogisticRegression"
     ):
         """
         Initializes the Logistic Regression model with specified parameters.
@@ -25,21 +26,28 @@ class LogisticRegression(Model):
             threshold (float): Threshold for converting predicted probabilities to class labels.
             random_state (int, optional): The seed for random number generator.
             verbose (bool, optional): Whether the verbose mode should be activated.
+            name (str, optional): The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
+
         self.learning_rate = learning_rate
-        self.initial_learning_reate = learning_rate
+        self.initial_learning_rate = learning_rate
         self.decay = decay
         self.method = method
         self.threshold = threshold
         self.batch_size = batch_size
         self.verbose = verbose
-        self._fitted = False
+
         if not method in ["default", "stochastic", "mini-batch"]:
             raise ValueError(f"LogisticRegression: Unknown method {method}")
-
-    def __str__(self) -> str:
-        return "LogisticRegression"
+        if self.batch_size <= 0 and method == "mini-batch":
+            raise ValueError(f"LogisticRegression: invalid batch size {batch_size}")
+        if self.decay <= 0:
+            raise ValueError(f"LogisticRegression: invalid decay {decay}")
+        if self.learning_rate <= 0:
+            raise ValueError(f"LogisticRegression: invalid learning rate {learning_rate}")
+        if self.threshold < 0 or self.threshold > 1:
+            raise ValueError(f"LogisticRegression: invalid threshold {threshold}")
 
     def _compute_mini_batch_gradient(self) -> np.ndarray:
         """Computes the gradient using mini batch
@@ -49,7 +57,7 @@ class LogisticRegression(Model):
             np.ndarray:
                 The mini batch gradient
         """
-        indices = np.arange(self.X.shape[0])
+        indices = np.arange(self.samples)
         np.random.shuffle(indices)
         X_shuffled, y_shuffled = self.X[indices], self.y[indices]
         mini_batches = [
@@ -57,9 +65,9 @@ class LogisticRegression(Model):
                 X_shuffled[i : i + self.batch_size],
                 y_shuffled[i : i + self.batch_size],
             )
-            for i in range(0, self.X.shape[0], self.batch_size)
+            for i in range(0, self.samples, self.batch_size)
         ]
-        res = np.zeros((self.X.shape[1], 1))
+        res = np.zeros((self.features))
         for X_batch, y_batch in mini_batches:
             res += 2 * np.dot(X_batch.T, np.dot(X_batch, self.weights) - y_batch)
         return res / len(mini_batches)
@@ -73,12 +81,12 @@ class LogisticRegression(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        res = np.zeros((self.X.shape[1], 1))
-        for m in range(self.X.shape[0]):
+        res = np.zeros((self.features))
+        for m in range(self.samples):
             res += 2 * np.dot(self.X[m : m + 1].T,
                 np.dot(self.X[m : m + 1], self.weights) - self.y[m : m + 1]
             )
-        return res / self.X.shape[0]
+        return res / self.samples
 
     def _compute_gradient(self) -> np.ndarray:
         """
@@ -99,22 +107,17 @@ class LogisticRegression(Model):
         ----------
             epoch (int): The current epoch number.
         """
-        if self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise ValueError(
-                f"LogisticRegression: Invalid shapes X={self.X.shape} while y={self.y.shape}"
-            )
+        last_gradients = self.gradients.copy()
+        if self.method == "default":
+            self.gradients = self._compute_gradient()
+        elif self.method == "stochastic":
+            self.gradients = self._compute_stochastic_gradient()
         else:
-            last_gradients = self.gradients.copy()
-            if self.method == "default":
-                self.gradients = self._compute_gradient()
-            elif self.method == "stochastic":
-                self.gradients = self._compute_stochastic_gradient()
-            else:
-                self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
-                self._finished = True
-            self.weights -= self.learning_rate * self.gradients
-            self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
+            self.gradients = self._compute_mini_batch_gradient()
+        if abs(np.sum(last_gradients) - np.sum(self.gradients)) <= self.tol:
+            self._finished = True
+        self.weights -= self.learning_rate * self.gradients
+        self.learning_rate = self.initial_learning_rate / (1 + self.decay * epoch)
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         """
@@ -131,16 +134,12 @@ class LogisticRegression(Model):
         -------
             LogisticRegression: Returns an instance of self.
         """
-        self.X = X
-        self.y = y
-        self.features = X.shape[1]
-        self.weights = np.random.randn(self.X.shape[1], 1)
-        self.fitted = True
+        super().fit(X, y)
+        self.weights = np.random.randn(self.features)
         self.epochs = epochs
         self.tol = tol
-        self.gradients = np.zeros((X.shape[1], 1))
+        self.gradients = np.zeros((self.features))
         self._finished = False
-        self._fitted = True
         for epoch in range(epochs):
             if self._finished:
                 self._finished = False
@@ -162,10 +161,5 @@ class LogisticRegression(Model):
         -------
             np.ndarray: Predicted class labels.
         """
-        if not self._fitted:
-            raise Exception("LogisticRegression: model not fitted")
-        if X.shape[1] != self.features:
-            raise ValueError(
-                f"LogisticRegression: shape should be {self.features} and not {X.shape[1]}"
-            )
+        super().predict(X)
         return expit(np.dot(X, self.weights)) > self.threshold

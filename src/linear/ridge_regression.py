@@ -13,6 +13,7 @@ class RidgeRegression(Model):
         batch_size=32,
         random_state=None,
         verbose=False,
+        name="RidgeRegression"
     ):
         """
         Initializes the Ridge Regression model with specified parameters.
@@ -26,8 +27,10 @@ class RidgeRegression(Model):
             batch_size (int, optional): The size of oen batch in the case of mini-batch
             random_state (int, optional): The seed for random number generator.
             verbose (bool, optional): Whether the verbose should activated
+            name (str, optional): The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
+
         self.learning_rate = learning_rate
         self.decay = decay
         self.method = method
@@ -35,17 +38,19 @@ class RidgeRegression(Model):
         self.batch_size = batch_size
         self.verbose = verbose
         self.initial_learning_rate = learning_rate
-        self._fitted = False
+        
         if method not in ["default", "stochastic", "mini-batch"]:
             raise ValueError(f"RidgeRegression: Unknown method {method}")
-
-    def __str__(self) -> str:
-        """String representation of the RidgeRegression class."""
-        return "RidgeRegression"
+        if self.decay <= 0:
+            raise ValueError(f"RidgeRegression: invalid decay {decay}")
+        if self.alpha <= 0:
+            raise ValueError(f"RidgeRegression: invalid alpha {alpha}")
+        if self.learning_rate <= 0:
+            raise ValueError(f"RidgeRegression: invalid learning rate {learning_rate}")
 
     def _compute_mini_batch_gradient(self) -> np.ndarray:
         """Computes the gradient using mini-batch gradient descent."""
-        indices = np.arange(self.X.shape[0])
+        indices = np.arange(self.samples)
         np.random.shuffle(indices)
         X_shuffled, y_shuffled = self.X[indices], self.y[indices]
         mini_batches = [
@@ -53,9 +58,9 @@ class RidgeRegression(Model):
                 X_shuffled[i : i + self.batch_size],
                 y_shuffled[i : i + self.batch_size],
             )
-            for i in range(0, self.X.shape[0], self.batch_size)
+            for i in range(0, self.samples, self.batch_size)
         ]
-        gradients = np.zeros((self.X.shape[1], 1))
+        gradients = np.zeros((self.features))
         for X_batch, y_batch in mini_batches:
             gradients += (
                 2 * X_batch.T.dot(X_batch.dot(self.weights) - y_batch)
@@ -65,8 +70,8 @@ class RidgeRegression(Model):
 
     def _compute_stochastic_gradient(self) -> np.ndarray:
         """Computes the gradient using stochastic gradient descent."""
-        gradients = np.zeros((self.X.shape[1], 1))
-        for m in range(self.X.shape[0]):
+        gradients = np.zeros((self.features))
+        for m in range(self.samples):
             gradients += (
                 2
                 * np.dot(
@@ -75,7 +80,7 @@ class RidgeRegression(Model):
                 )
                 + 2 * self.alpha * self.weights
             )
-        return gradients / self.X.shape[0]
+        return gradients / self.samples
 
     def _compute_gradient(self) -> np.ndarray:
         """Computes the gradient for the entire dataset (batch gradient descent)."""
@@ -92,24 +97,17 @@ class RidgeRegression(Model):
         ----------
             epoch (int): The current epoch number.
         """
-        if not self._fitted:
-            raise ValueError("RidgeRegression: not fitted with data")
-        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise ValueError(
-                f"RidgeRegression: Invalid shapes having {self.X.shape} and {self.y.shape}"
-            )
+        last_gradients = self.gradients.copy()
+        if self.method == "default":
+            self.gradients = self._compute_gradient()
+        elif self.method == "stochastic":
+            self.gradients = self._compute_stochastic_gradient()
         else:
-            last_gradients = self.gradients.copy()
-            if self.method == "default":
-                self.gradients = self._compute_gradient()
-            elif self.method == "stochastic":
-                self.gradients = self._compute_stochastic_gradient()
-            else:
-                self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients - self.gradients)) <= self.tol:
-                self._finished = True
-            self.weights -= self.learning_rate / (epoch + 1) * self.gradients
-            self.learning_rate = self.initial_learning_rate / (1 + self.decay * epoch)
+            self.gradients = self._compute_mini_batch_gradient()
+        if float(abs(np.sum(last_gradients - self.gradients))) <= self.tol:
+            self._finished = True
+        self.weights -= self.learning_rate / (epoch + 1) * self.gradients
+        self.learning_rate = self.initial_learning_rate / (1 + self.decay * epoch)
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         """
@@ -122,15 +120,11 @@ class RidgeRegression(Model):
             epochs (int): The number of epochs for training.
             tol (float): The tolerance for the stop criterion.
         """
-        self.X = X
-        self.y = y
-        self.id = np.identity(X.shape[1])
-        self.features = X.shape[1]
-        self.weights = np.random.randn(self.X.shape[1], 1)
-        self.gradients = np.zeros((self.X.shape[1], 1))
+        super().fit(X, y)
+        self.weights = np.random.randn(self.features)
+        self.gradients = np.zeros((self.features))
         self.epochs = epochs
         self.tol = tol
-        self._fitted = True
         self._finished = False
         for epoch in range(epochs):
             if self._finished:
@@ -152,11 +146,5 @@ class RidgeRegression(Model):
         Returns:
             np.ndarray: Predicted target values.
         """
-        if not self._fitted:
-            raise ValueError("RidgeRegression: not fitted")
-        if X.shape[1] != self.features:
-            raise ValueError(
-                "RidgeRegression: Shape should be", self.features, "and not", X.shape[1]
-            )
-        else:
-            return np.dot(X, self.weights)
+        super().predict(X)
+        return np.dot(X, self.weights)

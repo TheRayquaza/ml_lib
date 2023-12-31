@@ -25,16 +25,16 @@ def generate_linear_dataset(N: int, noise=True, slope=None):
             The target values.
     """
     if not slope:
-        a = random.randint(int(-20 * log10(N)), int(20 * log10(N)))
+        a = random.uniform(-20 * log10(N), 20 * log10(N))
     else:
         a = slope
-    b = random.randint(int(-20 * log10(N)), int(20 * log10(N)))
-    X = np.random.rand(N, 1)
+    b = random.uniform(-20 * log10(N), 20 * log10(N))
+    X = np.random.rand(N)
     if noise:
-        y = b + a * X + np.random.randn(N, 1)
+        y = b + a * X + np.random.randn(N)
     else:
         y = b + a * X
-    return X, y
+    return X.reshape(-1, 1), y
 
 
 def generate_polynomial_dataset(N: int, degree=2, noise=True):
@@ -59,13 +59,15 @@ def generate_polynomial_dataset(N: int, degree=2, noise=True):
             The target values.
     """
     L = [
-        random.randint(int(-20 * log10(N)), int(20 * log10(N)))
+        random.uniform(-20 * log10(N), 20 * log10(N))
         for _ in range(degree + 1)
     ]
     X = np.random.rand(N, 1).astype(np.float64)
-    y = np.zeros((N, 1), dtype=np.float64)
-    for i in range(degree + 1):
-        y += L[i] * X**i
+    powers = np.arange(degree + 1)
+    powers_matrix = np.tile(powers, (N, 1))
+    X_matrix = np.tile(X, (1, degree + 1))
+    X_poly = X_matrix**powers_matrix
+    y = np.dot(X_poly, L)
     if noise:
-        y += np.random.randn(N, 1).astype(np.float64)
+        y += np.random.randn(N).astype(np.float64)
     return X, y

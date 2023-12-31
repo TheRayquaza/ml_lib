@@ -11,12 +11,6 @@ def test_kmeans_init():
     assert kmeans.n_jobs is None
     assert not kmeans._fitted
 
-
-def test_kmeans_str():
-    kmeans = KMeans(3)
-    assert str(kmeans) == "KMeans"
-
-
 def test_fit_predict():
     X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
     n_clusters = 2

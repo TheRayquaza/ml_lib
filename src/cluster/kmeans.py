@@ -5,15 +5,12 @@ from multiprocessing import cpu_count
 
 
 class KMeans(Model):
-    def __init__(self, n_clusters: int, max_iter=100, random_state=None, n_jobs=None):
-        np.random.seed(random_state)
+    def __init__(self, n_clusters: int, max_iter=100, random_state=None, n_jobs=None, name="KMeans"):
+        super().__init__(random_state=random_state, name=name)
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
         self._fitted = False
-
-    def __str__(self) -> str:
-        return "KMeans"
 
     def _assign_cluster(self, i: int) -> tuple:
         """
@@ -21,7 +18,7 @@ class KMeans(Model):
 
         Parameters
         ----------
-            - i (int): Index of the data point.
+            i (int): Index of the data point.
 
         Returns
         -------
@@ -93,15 +90,13 @@ class KMeans(Model):
         -------
             KMeans: The fitted KMeans model.
         """
-        self._fitted = True
-        self.X = X
+        super().fit(X, y)
         self.centroids = X[
-            np.random.choice(np.arange(X.shape[0]), size=self.n_clusters, replace=False)
+            np.random.choice(np.arange(self.samples), size=self.n_clusters, replace=False)
         ]
         self.last_centroids = None
-        self.datapoints = X.shape[0]
-        self.distances = np.zeros((X.shape[0], self.n_clusters))
-        self.clusters = np.zeros(X.shape[0])
+        self.distances = np.zeros((self.samples, self.n_clusters))
+        self.clusters = np.zeros(self.samples)
         iter = 0
         while (
             self.last_centroids is None
@@ -119,7 +114,7 @@ class KMeans(Model):
 
         Parameters
         ----------
-            - X (np.ndarray): Data point.
+            X (np.ndarray): Data point.
 
         Returns
         -------
@@ -146,7 +141,8 @@ class KMeans(Model):
         """
         if not self._fitted:
             raise Exception("KMeans: not fitted with data")
-        y_pred = np.zeros(X.shape[0])
-        for i in range(X.shape[0]):
+        samples = X.shape[0]
+        y_pred = np.zeros(samples)
+        for i in range(samples):
             y_pred[i] = self._find_cluster(X[i])
         return y_pred

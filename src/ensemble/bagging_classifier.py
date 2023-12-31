@@ -11,6 +11,7 @@ class BaggingClassifier(Model):
         n_estimators=10,
         n_jobs=None,
         random_state=None,
+        name="BaggingClassifier"
     ):
         """
         Initialize the BaggingClassifier.
@@ -25,13 +26,14 @@ class BaggingClassifier(Model):
             The number of jobs to run in parallel (default is None). -1 means using all processors.
         random_state : int, optional
             Random state for reproducibility (default is None).
+        name: str, optional
+            The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
         self.estimator = estimator
         self.estimators = [estimator] * n_estimators  # Duplicate the estimator
         self.n_estimators = n_estimators
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
-        self._fitted = False
 
         # Validate estimator and number of estimators
         if not self.estimator:
@@ -42,16 +44,6 @@ class BaggingClassifier(Model):
             raise ValueError(
                 f"BaggingClassifier: Unable to create {self.n_estimators} estimators"
             )
-
-    def __str__(self):
-        """String representation of the bagging classifier
-
-        Returns
-        -------
-        str
-            the string representation
-        """
-        return "BaggingClassifier"
 
     def _bagging(self) -> list:
         """
@@ -64,7 +56,7 @@ class BaggingClassifier(Model):
         """
         bag = []
         for model in self.estimators:
-            indexes = np.random.randint(0, self.X.shape[0], self.X.shape[0])
+            indexes = np.random.randint(0, self.samples, self.samples)
             bag.append((model, self.X[indexes], self.y[indexes]))
         return bag
 
@@ -79,9 +71,7 @@ class BaggingClassifier(Model):
         y : np.ndarray
             Target values.
         """
-        self._fitted = True
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         L = self._bagging()
 
         # Fit models either sequentially or in parallel
@@ -139,21 +129,20 @@ class BaggingClassifier(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("BaggingClassifier: not fitted")
+        super().predict(X)
 
-        result = np.zeros((X.shape[0], 1))
+        samples = X.shape[0]
+        result = np.zeros((X.shape[0]))
 
-        # Make predictions for each instance in X
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 sub = []
                 for model in self.estimators:
                     sub.append(self._make_prediction(model, X[i : i + 1]))
                 uniques, counts = np.unique(np.array(sub), return_counts=True)
                 result[i] = uniques[np.argmax(counts)]
         else:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 pool = ThreadPoolExecutor(max_workers=self.n_jobs)
                 future_to_pred = {
                     pool.submit(self._make_prediction, model, X[i : i + 1]): model

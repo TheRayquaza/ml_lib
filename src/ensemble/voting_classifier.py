@@ -12,6 +12,7 @@ class VotingClassifier(Model):
         n_jobs=None,
         bootstrap=True,
         random_state=None,
+        name="VotingClassifier"
     ):
         """
         Initialize the VotingClassifier.
@@ -26,22 +27,19 @@ class VotingClassifier(Model):
             Whether to use bootstrap samples for training each estimator (default is True).
         random_state : int, optional
             Random state for reproducibility (default is None).
+        name : str, optional
+            The name given to the model
         """
-        random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
         self.estimators = estimators
         self.n_estimators = len(self.estimators)
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
         self.bootstrap = bootstrap
-        self._fitted = False
 
-        # Validate the number of estimators
         if self.n_estimators <= 0:
             raise ValueError(
                 f"VotingClassifier: Unable to create {self.n_estimators} estimators"
             )
-
-    def __str__(self):
-        return "VotingClassifier"
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         """
@@ -54,11 +52,8 @@ class VotingClassifier(Model):
         y : np.ndarray
             Target values.
         """
-        self._fitted = True
-        self.X = X
-        self.y = y
+        super().fit(X, y)
 
-        # Fit models either sequentially or in parallel
         if not self.n_jobs:
             for _, model in self.estimators:
                 model.fit(X, y)
@@ -69,7 +64,7 @@ class VotingClassifier(Model):
             }
             for future in as_completed(future_to_pred):
                 if future.result() == None:
-                    raise Exception("VotingClassifier: Something went wrong")
+                    raise Exception("VotingClassifier: something went wrong")
         return self
 
     def _make_prediction(self, model: Model, X: np.ndarray) -> list:
@@ -115,18 +110,20 @@ class VotingClassifier(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("VotingClassifier: not fitted")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        
+        samples = X.shape[0]
+        result = np.zeros((samples))
+        
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 sub = []
                 for _, model in self.estimators:
                     sub.append(self._make_prediction(model, X[i : i + 1]))
                 uniques, counts = np.unique(np.array(sub), return_counts=True)
                 result[i] = uniques[np.argmax(counts)]
         else:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 pool = ThreadPoolExecutor(max_workers=self.n_jobs)
                 future_to_pred = {
                     pool.submit(self._make_prediction, model, X[i : i + 1]): model

@@ -13,6 +13,7 @@ class LassoRegression(Model):
         batch_size=32,
         random_state=None,
         verbose=False,
+        name="LassoRegression"
     ):
         """
         Initialize the LassoRegression model.
@@ -24,9 +25,11 @@ class LassoRegression(Model):
         alpha (float, optional): The regularization strength.
         method (str, optional): The optimization method ("default", "stochastic" or "mini-batch").
         random_state (int, optional): Seed for the random number generator.
-        verbose (bool): Whether the verbose mode should be activated
+        verbose (bool, optional): Whether the verbose mode should be activated
+        name (str, optional): The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
+    
         self.learning_rate = learning_rate
         self.decay = decay
         self.alpha = alpha
@@ -34,12 +37,15 @@ class LassoRegression(Model):
         self.batch_size = batch_size
         self.verbose = verbose
         self.initial_learning_reate = learning_rate
-        self._fitted = False
+
         if not method in ["default", "stochastic", "mini-batch"]:
             raise ValueError(f"LassoRegression: Unknown method {method}")
-
-    def __str__(self) -> str:
-        return "LassoRegression"
+        if self.batch_size <= 0 and method == "mini-batch":
+            raise ValueError(f"LassoRegression: invalid batch size {batch_size}")
+        if self.decay <= 0:
+            raise ValueError(f"LassoRegression: invalid decay {decay}")
+        if self.learning_rate <= 0:
+            raise ValueError(f"LassoRegression: invalid learning rate {learning_rate}")
 
     def _compute_mini_batch_gradient(self) -> np.ndarray:
         """
@@ -50,7 +56,7 @@ class LassoRegression(Model):
             np.ndarray:
                 The mini batch gradient
         """
-        indices = np.arange(self.X.shape[0])
+        indices = np.arange(self.samples)
         np.random.shuffle(indices)
         X_shuffled, y_shuffled = self.X[indices], self.y[indices]
         mini_batches = [
@@ -58,9 +64,9 @@ class LassoRegression(Model):
                 X_shuffled[i : i + self.batch_size],
                 y_shuffled[i : i + self.batch_size],
             )
-            for i in range(0, self.X.shape[0], self.batch_size)
+            for i in range(0, self.samples, self.batch_size)
         ]
-        gradients = np.zeros((self.X.shape[1], 1))
+        gradients = np.zeros((self.features))
         for X_batch, y_batch in mini_batches:
             gradients += 2 * np.dot(
                 X_batch.T, np.dot(X_batch, self.weights - y_batch)
@@ -76,13 +82,13 @@ class LassoRegression(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        gradients = np.zeros((self.X.shape[1], 1))
-        for m in range(self.X.shape[0]):
+        gradients = np.zeros((self.features))
+        for m in range(self.samples):
             gradients += 2 * np.dot(
                 self.X[m : m + 1].T,
                 np.dot(self.X[m : m + 1], self.weights) - self.y[m : m + 1],
             ) + 2 * self.alpha * np.sign(self.weights)
-        return gradients / self.X.shape[0]
+        return gradients / self.samples
 
     def _compute_gradient(self) -> np.ndarray:
         """
@@ -106,24 +112,17 @@ class LassoRegression(Model):
         epoch : int
             The current epoch number.
         """
-        if not self._fitted:
-            raise Exception("LassoRegression: not fitted with data")
-        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise Exception(
-                f"LassoRegression: Invalid shapes having {self.X.shape} and {self.y.shape}"
-            )
+        last_gradients = self.gradients.copy()
+        if self.method == "default":
+            self.gradients = self._compute_gradient()
+        elif self.method == "stochastic":
+            self.gradients = self._compute_stochastic_gradient()
         else:
-            last_gradients = self.gradients.copy()
-            if self.method == "default":
-                self.gradients = self._compute_gradient()
-            elif self.method == "stochastic":
-                self.gradients = self._compute_stochastic_gradient()
-            else:
-                self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients - self.gradients)) <= self.tol:
-                self._finished = True
-            self.weights -= self.learning_rate * self.gradients
-            self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
+            self.gradients = self._compute_mini_batch_gradient()
+        if float(abs(np.sum(last_gradients - self.gradients))) <= self.tol:
+            self._finished = True
+        self.weights -= self.learning_rate * self.gradients
+        self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         """
@@ -145,15 +144,12 @@ class LassoRegression(Model):
         self
             The instance itself
         """
-        self.X = X
-        self.y = y
-        self.features = X.shape[1]
-        self.weights = np.random.randn(self.X.shape[1], 1)
+        super().fit(X, y)
+        self.weights = np.random.randn(self.features)
         self.epochs = epochs
-        self.gradients = np.zeros((X.shape[1], 1))
+        self.gradients = np.zeros((self.features))
         self.tol = tol
         self._finished = False
-        self._fitted = True
         if epochs < 0:
             raise ValueError(f"LassoRegression: invalid number of epochs {epochs}")
         for epoch in range(epochs):
@@ -178,10 +174,5 @@ class LassoRegression(Model):
         np.ndarray:
             The dot product between the input and weights
         """
-        if not self._fitted:
-            raise Exception(f"LassoRegression: not fitted with data")
-        if X.shape[1] != self.features:
-            raise ValueError(
-                f"LassoRegression: shape should be {self.features} and not {X.shape[1]}"
-            )
+        super().predict(X)
         return np.dot(X, self.weights)

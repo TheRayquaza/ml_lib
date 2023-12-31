@@ -5,7 +5,7 @@ from multiprocessing import cpu_count
 
 
 class BaggingRegressor(Model):
-    def __init__(self, estimator, n_estimators=10, n_jobs=None, random_state=None):
+    def __init__(self, estimator, n_estimators=10, n_jobs=None, random_state=None, name="BaggingRegressor"):
         """
         Initialize the BaggingRegressor.
 
@@ -19,8 +19,10 @@ class BaggingRegressor(Model):
             The number of jobs to run in parallel (default is None). -1 means using all processors.
         random_state : int, optional
             Random state for reproducibility (default is None).
+        name : str, optional
+            The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
         self.estimator = estimator
         self.estimators = [estimator] * n_estimators  # Duplicate the estimator
         self.n_estimators = n_estimators
@@ -36,9 +38,6 @@ class BaggingRegressor(Model):
             raise ValueError(
                 f"BaggingRegressor: Unable to create {self.n_estimators} estimators"
             )
-
-    def __str__(self):
-        return "BaggingRegressor"
 
     def _bagging(self) -> list:
         """
@@ -66,9 +65,7 @@ class BaggingRegressor(Model):
         y : np.ndarray
             Target values.
         """
-        self._fitted = True
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         L = self._bagging()
 
         # Fit models either sequentially or in parallel
@@ -126,20 +123,19 @@ class BaggingRegressor(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("BaggingRegressor: not fitted")
+        super().predict(X)
 
-        result = np.zeros((X.shape[0], 1))
+        samples = X.shape[0]
+        result = np.zeros((samples))
 
-        # Make predictions for each instance in X
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 sub = []
                 for model in self.estimators:
                     sub.append(self._make_prediction(model, X[i : i + 1]))
                 result[i] = np.mean(np.array(sub))
         else:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 pool = ThreadPoolExecutor(max_workers=self.n_jobs)
                 future_to_pred = {
                     pool.submit(self._make_prediction, model, X[i : i + 1]): model

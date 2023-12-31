@@ -1,5 +1,4 @@
 import numpy as np
-import math
 
 
 def confusion_matrix(y_true: np.array, y_pred: np.array) -> np.array:
@@ -33,7 +32,7 @@ def accuracy_score(y_true: np.array, y_pred: np.array, percent=True) -> np.array
         return np.mean(y_true == y_pred)
 
 
-def precision_score(y_true: np.array, y_pred: np.array) -> np.array:
+def precision_score(y_true: np.array, y_pred: np.array, average="micro") -> np.array:
     """
     Calculate the precision
     """
@@ -47,10 +46,13 @@ def precision_score(y_true: np.array, y_pred: np.array) -> np.array:
         tp = cf_matrix[c, c]
         fn = np.sum(cf_matrix[c, :]) - tp
         result[c] = tp / (tp + fn)
-    return result
+    if average == "micro":
+        return result
+    else:
+        return np.mean(result)
 
 
-def recall_score(y_true: np.array, y_pred: np.array) -> np.array:
+def recall_score(y_true: np.array, y_pred: np.array, average="micro") -> np.array:
     """
     Calculate the recall
     """
@@ -64,13 +66,16 @@ def recall_score(y_true: np.array, y_pred: np.array) -> np.array:
         tp = cf_matrix[c, c]
         fp = np.sum(cf_matrix[:, c]) - tp
         result[c] = tp / (tp + fp)
-    return result
+    if average == "micro":
+        return result
+    else:
+        return np.mean(result)
 
 
-def f1_score(y_true: np.array, y_pred: np.array) -> np.array:
+def f1_score(y_true: np.array, y_pred: np.array, average="micro") -> np.array:
     """
     Calculate the f1 score
     """
-    precision = precision_score(y_true, y_pred)
-    recall = recall_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, average)
+    recall = recall_score(y_true, y_pred, average)
     return 2 * (precision * recall) / (precision + recall)

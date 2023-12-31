@@ -52,12 +52,6 @@ def test_voting_classifier_invalid_base_estimators(invalid_estimators):
         VotingClassifier(invalid_estimators)
 
 
-def test_voting_classifier_str():
-    base_estimators = [("DecisionTree", DecisionTreeClassifier())]
-    voting_classifier = VotingClassifier(base_estimators)
-    assert str(voting_classifier) == "VotingClassifier"
-
-
 def test_voting_classifier_predict_without_fit():
     base_estimators = [("DecisionTree", DecisionTreeClassifier())]
     voting_classifier = VotingClassifier(base_estimators)

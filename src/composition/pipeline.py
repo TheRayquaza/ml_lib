@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Pipeline(Model):
-    def __init__(self, steps=[]):
+    def __init__(self, steps=[], name="Pipeline", random_state=None):
         """
         Initialize the Pipeline.
 
@@ -13,26 +13,11 @@ class Pipeline(Model):
         steps : list
             List of (name, transform) tuples.
         """
+        super().__init__(random_state=random_state, name=name)
         self.steps = steps
         self._model = None
         if len(steps) != 0:
             self._model = self.steps[-1][-1]
-
-    def __str__(self) -> str:
-        step_names = [name for name, _ in self.steps]
-        return " -> ".join(step_names)
-
-    @property
-    def weights(self):
-        """
-        Get the weights of the final model in the pipeline.
-
-        Returns
-        -------
-        Any
-            Weights of the final model.
-        """
-        return self._model.weights
 
     @property
     def model(self):
@@ -62,6 +47,7 @@ class Pipeline(Model):
         Exception
             If any element in the pipeline is neither a Model nor a Transformer.
         """
+        super().fit(X, y)
         for _, element in self.steps:
             if issubclass(type(element), Model):
                 element.fit(X, y)
@@ -89,6 +75,7 @@ class Pipeline(Model):
         Exception
             If any element in the pipeline is neither a Model nor a Transformer.
         """
+        super().predict(X)
         for _, element in self.steps:
             if issubclass(type(element), Model):
                 X = element.predict(X)

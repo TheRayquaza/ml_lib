@@ -13,6 +13,7 @@ class LinearRegression(Model):
         random_state=None,
         verbose=False,
         n_weights=None,
+        name="LinearRegression"
     ):
         """
         Initializes the Linear Regression model with specified parameters.
@@ -25,21 +26,26 @@ class LinearRegression(Model):
             random_state (int, optional): The seed for random number generator.
             verbose (bool, optional): Whether the verbse mode should be actiavted.
             n_weights (int, optional): If given, give a spefici shape to the weight
+            name (str, optional): The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
+
         self.learning_rate = learning_rate
         self.decay = decay
         self.method = method
         self.batch_size = batch_size
         self.verbose = verbose
         self.n_weights = n_weights
-        self.initial_learning_reate = learning_rate
-        self._fitted = False
-        if not method in ["default", "stochastic", "analytic", "mini-batch"]:
-            raise Exception("LinearRegression: Unknown method " + method)
+        self.initial_learning_rate = learning_rate
 
-    def __str__(self) -> str:
-        return "LinearRegression"
+        if not method in ["default", "stochastic", "mini-batch"]:
+            raise Exception("LinearRegression: Unknown method " + method)
+        if self.batch_size <= 0 and method == "mini-batch":
+            raise ValueError(f"LinearRegression: invalid batch size {batch_size}")
+        if self.decay <= 0:
+            raise ValueError(f"LinearRegression: invalid decay {decay}")
+        if self.learning_rate <= 0:
+            raise ValueError(f"LinearRegression: invalid learning rate {learning_rate}")
 
     def _compute_mini_batch_gradient(self) -> np.ndarray:
         """
@@ -50,7 +56,7 @@ class LinearRegression(Model):
             np.ndarray:
                 The mini batch gradient
         """
-        indices = np.arange(self.X.shape[0])
+        indices = np.arange(self.samples)
         np.random.shuffle(indices)
         X_shuffled, y_shuffled = self.X[indices], self.y[indices]
         mini_batches = [
@@ -58,9 +64,9 @@ class LinearRegression(Model):
                 X_shuffled[i : i + self.batch_size],
                 y_shuffled[i : i + self.batch_size],
             )
-            for i in range(0, self.X.shape[0], self.batch_size)
+            for i in range(0, self.samples, self.batch_size)
         ]
-        gradients = np.zeros((self.X.shape[1], 1))
+        gradients = np.zeros((self.features))
         for X_batch, y_batch in mini_batches:
             gradients += 2 * np.dot(X_batch.T, np.dot(X_batch, self.weights) - y_batch)
         return gradients / len(mini_batches)
@@ -74,13 +80,13 @@ class LinearRegression(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        gradients = np.zeros((self.X.shape[1], 1))
-        for m in range(self.X.shape[0]):
+        gradients = np.zeros((self.features))
+        for m in range(self.samples):
             gradients += 2 * np.dot(
                 self.X[m : m + 1].T,
                 np.dot(self.X[m : m + 1], self.weights) - self.y[m : m + 1],
             )
-        return gradients / self.X.shape[0]
+        return gradients / self.samples
 
     def _compute_gradient(self) -> np.ndarray:
         """
@@ -100,35 +106,17 @@ class LinearRegression(Model):
         ----------
             epoch (int): epoch number
         """
-        if not self._fitted:
-            raise Exception("LinearRegression: not fitted with data")
-        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise Exception(
-                f"LinearRegression: invalid shapes having {self.X.shape} and {self.y.shape}"
-            )
+        last_gradients = self.gradients.copy()
+        if self.method == "default":
+            self.gradients = self._compute_gradient()
+        elif self.method == "stochastic":
+            self.gradients = self._compute_stochastic_gradient()
         else:
-            last_gradients = self.gradients.copy()
-            if self.method == "default":
-                self.gradients = self._compute_gradient()
-            elif self.method == "stochastic":
-                self.gradients = self._compute_stochastic_gradient()
-            else:
-                self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients - self.gradients)) <= self.tol:
-                self._finished = True
-            self.weights -= self.learning_rate * self.gradients
-            self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
-
-    def _train_analytic(self):
-        """Method for findind the weights using pseudo inverse"""
-        if not self._fitted:
-            raise Exception("LinearRegression: not fitted with data")
-        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise Exception(
-                f"LinearRegression: Invalid shapes {self.X.shape} and {self.y.shape}"
-            )
-        else:
-            self.weights = np.linalg.pinv(self.X).dot(self.y)
+            self.gradients = self._compute_mini_batch_gradient()
+        if float(abs(np.sum(last_gradients - self.gradients))) <= self.tol:
+            self._finished = True
+        self.weights -= self.learning_rate * self.gradients
+        self.learning_rate = self.initial_learning_rate / (1 + self.decay * epoch)
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         """
@@ -145,26 +133,20 @@ class LinearRegression(Model):
         -------
             self: Returns an instance of self.
         """
-        self.X = X
-        self.y = y
-        self.features = X.shape[1]
-        self.weights = np.random.randn(self.X.shape[1], 1)
+        super().fit(X, y)
+        self.weights = np.random.randn(self.features)
         self.bias = 0
         self.epochs = epochs
         self.tol = tol
-        self.gradients = np.zeros((X.shape[1], 1))
+        self.gradients = np.zeros((self.featues))
         self._finished = False
-        self._fitted = True
-        if self.method == "analytic":
-            self._train_analytic()
-        else:
-            for epoch in range(epochs):
-                if self._finished:
-                    self._finished = False
-                    break
-                self._train(epoch)
-                if self.verbose:
-                    print(f"MSE epoch {epoch}: {mse(y, self.predict(X))}")
+        for epoch in range(epochs):
+            if self._finished:
+                self._finished = False
+                break
+            self._train(epoch)
+            if self.verbose:
+                print(f"MSE epoch {epoch}: {mse(y, self.predict(X))}")
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -179,11 +161,5 @@ class LinearRegression(Model):
         -------
             np.ndarray: Predicted target values.
         """
-        if not self._fitted:
-            raise ValueError("LinearRegression: not fitted with data")
-        elif X.shape[1] != self.features:
-            raise Exception(
-                f"LinearRegression: shape should {self.features} and not {X.shape[1]}"
-            )
-        else:
-            return np.dot(X, self.weights)
+        super().predict(X)
+        return np.dot(X, self.weights)

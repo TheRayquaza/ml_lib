@@ -1,7 +1,6 @@
 from classes.model import Model
 from tree.tree_node import TreeNode
 import numpy as np
-import random
 from metrics.classification_impurity import (
     gini_impurity,
     classification_impurity,
@@ -19,6 +18,7 @@ class DecisionTreeClassifier(Model):
         n_jobs=None,
         split="best",
         random_state=None,
+        name="DecisionTreeClassifier"
     ):
         """
         Initializes the Decision Tree Classifier model with specified parameters.
@@ -30,24 +30,22 @@ class DecisionTreeClassifier(Model):
             n_jobs (int): Number of parallel jobs to run during prediction.
             split (str): The split method.
             random_state (int): Seed for the random number generator.
+            name (str) : The name given to the model
         """
-        random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
+
         self.root = None
         self.max_depth = max_depth
         self.method = method
         self.split = split
-        self._fitted = False
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
+
         if split not in ["best", "random"]:
             raise ValueError(f"DecisionTreeClassifier: Unknown split method {split}")
         if method not in ["gini", "entropy", "classification"]:
             raise ValueError(f"DecisionTreeClassifier: Unknown method {method}")
 
-    def __str__(self):
-        """String representation of the DecisionTreeClassifier class."""
-        return "DecisionTreeClassifier"
-
-    def _calculate_impurity(self, y: np.array) -> float:
+    def _calculate_impurity(self, y: np.ndarray) -> float:
         """
         Calculates impurity of a set of target values.
 
@@ -67,7 +65,7 @@ class DecisionTreeClassifier(Model):
         else:
             return classification_impurity(uniques, counts)
 
-    def _build_tree(self, X: np.array, y: np.array, depth=None):
+    def _build_tree(self, X: np.ndarray, y: np.ndarray, depth=None):
         """
         Recursively builds the decision tree.
 
@@ -83,7 +81,7 @@ class DecisionTreeClassifier(Model):
         """
         uniques = np.unique(y)
         if depth == 0 or len(uniques) <= 1:
-            return TreeNode(X, y, None, None, None)
+            return TreeNode(X, y, 0, 0, 0)
 
         feature, value, impurity_reduction = 0, 0, 0
         if self.split == "best":
@@ -108,7 +106,7 @@ class DecisionTreeClassifier(Model):
         root.right = self._build_tree(X_right, y_right, depth - 1 if depth else depth)
         return root
 
-    def _find_random_split(self, X: np.array, y: np.array):
+    def _find_random_split(self, X: np.ndarray, y: np.ndarray):
         """
         Finds a random split for the decision tree.
 
@@ -121,8 +119,8 @@ class DecisionTreeClassifier(Model):
         -------
             Tuple[int, float, float]: Tuple containing feature, split value, and impurity reduction.
         """
-        rd_feature = random.randint(0, X.shape[1] - 1)
-        rd_value = random.randint(0, X.shape[0] - 1)
+        rd_feature = np.random.randint(0, X.shape[1] - 1)
+        rd_value = np.random.randint(0, X.shape[0] - 1)
         rd_split_value = X[rd_value, rd_feature]
 
         impurity = self._calculate_impurity(y)
@@ -142,7 +140,7 @@ class DecisionTreeClassifier(Model):
 
         return rd_feature, rd_split_value, rd_impurity_reduction
 
-    def _find_best_split(self, X: np.array, y: np.array):
+    def _find_best_split(self, X: np.ndarray, y: np.ndarray):
         """
         Finds the best split for the decision tree.
 
@@ -185,7 +183,7 @@ class DecisionTreeClassifier(Model):
                     best_split_value = v
         return best_feature, best_split_value, best_impurity_reduction
 
-    def fit(self, X: np.array, y: np.array):
+    def fit(self, X: np.ndarray, y: np.ndarray):
         """
         Fits the decision tree to the training data.
 
@@ -198,13 +196,11 @@ class DecisionTreeClassifier(Model):
         -------
             DecisionTreeClassifier: The fitted model.
         """
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         self.root = self._build_tree(X, y, self.max_depth)
-        self._fitted = True
         return self
 
-    def _make_prediction(self, X: np.array):
+    def _make_prediction(self, X: np.ndarray):
         """
         Makes a prediction for a single input using the decision tree.
 
@@ -224,7 +220,7 @@ class DecisionTreeClassifier(Model):
                 current = current.left
         return current.select_value()
 
-    def predict(self, X: np.array) -> np.array:
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """
         Predicts the target values for a set of input features.
 
@@ -236,16 +232,17 @@ class DecisionTreeClassifier(Model):
         -------
             np.ndarray: The predicted target values.
         """
-        if not self._fitted:
-            raise ValueError("DecisionTreeClassifier: model not fitted with data")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        
+        samples = X.shape[0]
+        result = np.zeros((samples))
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 result[i] = self._make_prediction(X[i])
         else:
             pool = ThreadPoolExecutor(max_workers=self.n_jobs)
             future_to_pred = {
-                pool.submit(self._make_prediction, X[i]): i for i in range(X.shape[0])
+                pool.submit(self._make_prediction, X[i]): i for i in range(samples)
             }
             for future in as_completed(future_to_pred):
                 result[future_to_pred[future]] = future.result()

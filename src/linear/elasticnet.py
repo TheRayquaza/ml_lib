@@ -13,7 +13,8 @@ class ElasticNet(Model):
         method="default",
         batch_size=32,
         random_state=None,
-        verbose=False
+        verbose=False,
+        name="ElasticNet"
     ):
         """
         Initialize the ElasticNet model.
@@ -34,10 +35,13 @@ class ElasticNet(Model):
             The batch size, will be used if the method is "mini-batch" (default is 32)
         random_state : int, optional
             Seed for random number generation (default is None).
-        verbose: bool, optional
+        verbose : bool, optional
             Whether the verbose should be activated
+        name : str, optional
+            The name given to the model
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
+
         self.learning_rate = learning_rate
         self.decay = decay
         self.alpha = alpha
@@ -46,14 +50,17 @@ class ElasticNet(Model):
         self.verbose = verbose
         self.initial_learning_reate = learning_rate
         self.batch_size = batch_size
-        self._fitted = False
+
         if not method in ["default", "stochastic", "mini-batch"]:
             raise ValueError(f"ElasticNet: Unknown method {method}")
         if self.batch_size <= 0 and method == "mini-batch":
             raise ValueError(f"ElasticNet: invalid batch size {batch_size}")
-
-    def __str__(self) -> str:
-        return "ElasticNet"
+        if self.learning_rate <= 0:
+            raise ValueError(f"ElasticNet: invalid learning rate {learning_rate}")
+        if self.decay <= 0:
+            raise ValueError(f"ElasticNet: invalid decay {decay}")
+        if self.rho <= 0:
+            raise ValueError(f"ElasticNet: invalid mxiing parameter {rho}")
 
     def _compute_stochastic_gradient(self) -> np.ndarray:
         """
@@ -64,8 +71,8 @@ class ElasticNet(Model):
             np.ndarray:
                 The stochastic gradient
         """
-        res = np.zeros((self.X.shape[1], 1))
-        for m in range(self.X.shape[0]):
+        res = np.zeros((self.features))
+        for m in range(self.samples):
             res += (
                 2
                 * np.dot(self.X[m : m + 1].T,
@@ -74,7 +81,7 @@ class ElasticNet(Model):
                 + 2 * self.alpha * np.sign(self.weights)
                 + self.alpha * self.rho * self.weights
             )
-        return res / self.X.shape[0]
+        return res / self.samples
 
     def _compute_mini_batch_gradient(self) -> np.ndarray:
         """
@@ -85,7 +92,7 @@ class ElasticNet(Model):
             np.ndarray:
                 The mini batch gradient
         """
-        indices = np.arange(self.X.shape[0])
+        indices = np.arange(self.samples)
         np.random.shuffle(indices)
         X_shuffled, y_shuffled = self.X[indices], self.y[indices]
         mini_batches = [
@@ -93,16 +100,16 @@ class ElasticNet(Model):
                 X_shuffled[i : i + self.batch_size],
                 y_shuffled[i : i + self.batch_size],
             )
-            for i in range(0, self.X.shape[0], self.batch_size)
+            for i in range(0, self.samples, self.batch_size)
         ]
-        res = np.zeros((self.X.shape[1], 1))
+        res = np.zeros((self.features))
         for X_batch, y_batch in mini_batches:
             res += (
                 2 * np.dot(X_batch.T, np.dot(X_batch, self.weights) - y_batch)
                 + 2 * self.alpha * np.sign(self.weights)
                 + self.alpha * self.rho * self.weights
             )
-        return res / self.X.shape[0]
+        return res / self.samples
 
     def _compute_gradient(self) -> np.ndarray:
         """
@@ -128,24 +135,17 @@ class ElasticNet(Model):
         epoch : int
             Current epoch number.
         """
-        if not self._fitted:
-            raise Exception("ElasticNet: not fitted")
-        elif self.y.shape[0] != self.X.shape[0] or self.y.shape[1] != 1:
-            raise Exception(
-                f"ElasticNet: invalid shapes {self.X.shape} and {self.y.shape}"
-            )
+        last_gradients = self.gradients.copy()
+        if self.method == "default":
+            self.gradients = self._compute_gradient()
+        elif self.method == "stochastic":
+            self.gradients = self._compute_stochastic_gradient()
         else:
-            last_gradients = self.gradients.copy()
-            if self.method == "default":
-                self.gradients = self._compute_gradient()
-            elif self.method == "stochastic":
-                self.gradients = self._compute_stochastic_gradient()
-            else:
-                self.gradients = self._compute_mini_batch_gradient()
-            if abs(np.sum(last_gradients - self.gradients)) <= self.tol:
-                self._finished = True
-            self.weights -= self.learning_rate * self.gradients
-            self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
+            self.gradients = self._compute_mini_batch_gradient()
+        if float(abs(np.sum(last_gradients - self.gradients))) <= self.tol:
+            self._finished = True
+        self.weights -= self.learning_rate * self.gradients
+        self.learning_rate = self.initial_learning_reate / (1 + self.decay * epoch)
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs=100, tol=1e-4):
         """
@@ -167,14 +167,11 @@ class ElasticNet(Model):
         self : ElasticNet
             Returns the instance itself.
         """
-        self.X = X
-        self.y = y
-        self.features = X.shape[1]
-        self.weights = np.random.randn(self.X.shape[1], 1)
+        super().fit(X, y)
+        self.weights = np.random.randn(self.features)
         self.epochs = epochs
-        self.gradients = np.zeros((X.shape[1], 1))
+        self.gradients = np.zeros((self.features))
         self.tol = tol
-        self._fitted = True
         self._finished = False
         for epoch in range(epochs):
             if self._finished:
@@ -199,11 +196,5 @@ class ElasticNet(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("ElasticNet: not fitted")
-        if X.shape[1] != self.features:
-            raise Exception(
-                f"ElasticNet: shape should be {self.features} and not {X.shape[1]}"
-            )
-        else:
-            return np.dot(X, self.weights)
+        super().predict(X)
+        return np.dot(X, self.weights)

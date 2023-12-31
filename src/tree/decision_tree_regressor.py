@@ -8,7 +8,7 @@ import random
 
 
 class DecisionTreeRegressor(Model):
-    def __init__(self, max_depth=None, method="mse", n_jobs=None, split="best"):
+    def __init__(self, max_depth=None, method="mse", n_jobs=None, split="best", random_state=None, name="DecisionTreeRegressor"):
         """
         Initializes the Decision Tree Regressor model with specified parameters.
 
@@ -18,22 +18,23 @@ class DecisionTreeRegressor(Model):
             method (str): The impurity calculation method.
             n_jobs (int): Number of parallel jobs to run during prediction.
             split (str): The split method.
+            random_state (int): If given, allow reproducibility
+            name (str): The name given to the model
         """
+        super().__init__(random_state=random_state, name=name)
+    
         self.root = None
         self.max_depth = max_depth
         self.method = method
         self.split = split
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
-        self._fitted = False
+
         if not split in ["best", "random"]:
             raise ValueError("DecisionTreeRegressor: Unknown split method", method)
         if not method in ["mse", "mae", "rmse"]:
             raise ValueError("DecisionTreeRegressor: Unknown method", method)
 
-    def __str__(self):
-        return "DecisionTreeRegressor"
-
-    def _calculate_impurity(self, y: np.array) -> float:
+    def _calculate_impurity(self, y: np.ndarray) -> float:
         """
         Calculates impurity of a set of target values.
 
@@ -56,7 +57,7 @@ class DecisionTreeRegressor(Model):
         else:
             return rmse(y_pred, y)
 
-    def _build_tree(self, X: np.array, y: np.array, depth=None):
+    def _build_tree(self, X: np.ndarray, y: np.ndarray, depth=None):
         """
         Recursively builds the decision tree.
 
@@ -72,7 +73,7 @@ class DecisionTreeRegressor(Model):
         """
         uniques = np.unique(y)
         if depth == 0 or len(uniques) <= 1:
-            return TreeNode(X, y, None, None, None)
+            return TreeNode(X, y, 0, 0, 0)
 
         feature, value, impurity_reduction = 0, 0, 0
         if self.split == "best":
@@ -81,10 +82,10 @@ class DecisionTreeRegressor(Model):
             feature, value, impurity_reduction = self._find_random_split(X, y)
         root = TreeNode(X, y, impurity_reduction, feature, value)
         X_left, y_left, X_right, y_right = (
-            np.zeros((0, X.shape[1])),
-            np.zeros((0, 1)),
-            np.zeros((0, X.shape[1])),
-            np.zeros((0, 1)),
+            np.zeros((0, self.samples)),
+            np.zeros((0)),
+            np.zeros((0, self.samples)),
+            np.zeros((0)),
         )
         for i in range(X.shape[0]):
             if X[i, feature] <= value:
@@ -97,7 +98,7 @@ class DecisionTreeRegressor(Model):
         root.right = self._build_tree(X_right, y_right, depth - 1 if depth else depth)
         return root
 
-    def _find_random_split(self, X: np.array, y: np.array):
+    def _find_random_split(self, X: np.ndarray, y: np.ndarray):
         """
         Finds a random split for the decision tree.
 
@@ -110,15 +111,16 @@ class DecisionTreeRegressor(Model):
         -------
             Tuple[int, float, float]: Tuple containing feature, split value, and impurity reduction.
         """
-        rd_feature = random.randint(0, self.X.shape[0])
-        rd_split_value = self.X[random.randint(0, self.X.shape[0]), rd_feature]
+        rd_feature = np.random.randint(0, self.features)
+        rd_index = np.random.randint(0, self.samples)
+        rd_split_value = self.X[rd_index, rd_feature]
 
         impurity = self._calculate_impurity(y)
 
         left_indices = X[:, rd_feature] <= rd_split_value
         right_indices = ~left_indices
-        y_left = y[left_indices].reshape(-1, 1)
-        y_right = y[right_indices].reshape(-1, 1)
+        y_left = y[left_indices]
+        y_right = y[right_indices]
 
         impurity_left = self._calculate_impurity(y_left)
         impurity_right = self._calculate_impurity(y_right)
@@ -130,7 +132,7 @@ class DecisionTreeRegressor(Model):
 
         return rd_feature, rd_split_value, rd_impurity_reduction
 
-    def _find_best_split(self, X: np.array, y: np.array):
+    def _find_best_split(self, X: np.ndarray, y: np.ndarray):
         """
         Finds the best split for the decision tree.
 
@@ -149,12 +151,12 @@ class DecisionTreeRegressor(Model):
 
         impurity = self._calculate_impurity(y)
 
-        for feature in range(X.shape[1]):
+        for feature in range(self.features):
             for v in np.unique(X[:, feature]):
                 left_indices = X[:, feature] <= v
                 right_indices = ~left_indices
-                y_left = y[left_indices].reshape(-1, 1)
-                y_right = y[right_indices].reshape(-1, 1)
+                y_left = y[left_indices]
+                y_right = y[right_indices]
 
                 impurity_left = self._calculate_impurity(y_left)
                 impurity_right = self._calculate_impurity(y_right)
@@ -173,7 +175,7 @@ class DecisionTreeRegressor(Model):
                     best_split_value = v
         return best_feature, best_split_value, best_impurity_reduction
 
-    def _make_prediction(self, X: np.array):
+    def _make_prediction(self, X: np.ndarray):
         """
         Makes a prediction using the decision tree.
 
@@ -193,7 +195,7 @@ class DecisionTreeRegressor(Model):
                 current = current.left
         return current.select_value()
 
-    def fit(self, X: np.array, y: np.array):
+    def fit(self, X: np.ndarray, y: np.ndarray):
         """
         Fits the decision tree model to the training data.
 
@@ -206,13 +208,11 @@ class DecisionTreeRegressor(Model):
         -------
             DecisionTreeRegressor: The fitted model.
         """
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         self.root = self._build_tree(X, y, self.max_depth)
-        self._fitted = True
         return self
 
-    def predict(self, X: np.array) -> np.array:
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """
         Predicts the target values for input features.
 
@@ -224,16 +224,18 @@ class DecisionTreeRegressor(Model):
         -------
             np.ndarray: The predicted target values.
         """
-        if not self._fitted:
-            raise ValueError("DecisionTreeRegressor: not fitted with data")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        
+        samples = X.shape[0]
+        result = np.zeros((samples))
+
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 result[i] = self._make_prediction(X[i])
         else:
             pool = ThreadPoolExecutor(max_workers=self.n_jobs)
             future_to_pred = {
-                pool.submit(self._make_prediction, X[i]): i for i in range(X.shape[0])
+                pool.submit(self._make_prediction, X[i]): i for i in range(samples)
             }
             for future in as_completed(future_to_pred):
                 result[future_to_pred[future]] = future.result()

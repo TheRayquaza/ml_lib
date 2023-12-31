@@ -31,10 +31,6 @@ def generate_clustering_dataset(
     np.random.seed(random_state)
     centroids = np.random.rand(n_clusters, n_features)
 
-    X = []
-    for _ in range(n_samples):
-        class_label = np.random.randint(0, n_clusters)
-        sample = centroids[class_label] + cluster_std * np.random.randn(n_features)
-        X.append(sample)
+    X = centroids + cluster_std * np.random.randn(n_samples, n_features)
 
-    return np.array(X)
+    return X

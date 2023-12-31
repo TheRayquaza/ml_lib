@@ -14,6 +14,7 @@ class RandomForestClassifier(Model):
         n_jobs=None,
         bootstrap=True,
         random_state=None,
+        name="RandomForestClassifier"
     ):
         """
         Initialize the RandomForestClassifier.
@@ -32,8 +33,10 @@ class RandomForestClassifier(Model):
             Whether to use bootstrap samples for training each decision tree (default is True).
         random_state : int, optional
             Random state for reproducibility (default is None).
+        name : str, optional
+            The name given to the model.
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.method = method
@@ -57,11 +60,9 @@ class RandomForestClassifier(Model):
         self.estimators = [
             DecisionTreeClassifier(max_depth=max_depth, method=method, n_jobs=n_jobs)
         ] * n_estimators
-
-        self._fitted = False
-
+    
     def __str__(self):
-        return "RandomForestClassifier"
+        return super().__str__()
 
     def _bagging(self):
         """
@@ -78,7 +79,7 @@ class RandomForestClassifier(Model):
                 L.append((model, self.X, self.y))
         else:
             for model in self.estimators:
-                indexes = np.random.randint(0, self.X.shape[0], self.X.shape[0])
+                indexes = np.random.randint(0, self.samples, self.samples)
                 L.append((model, self.X[indexes], self.y[indexes]))
         return L
 
@@ -93,11 +94,8 @@ class RandomForestClassifier(Model):
         y : np.ndarray
             Target values.
         """
-        self._fitted = True
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         L = self._bagging()
-        self._fitted = True
 
         # Fit models either sequentially or in parallel
         if not self.n_jobs:
@@ -156,18 +154,20 @@ class RandomForestClassifier(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("RandomForestClassifier: not fitted")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        
+        samples = X.shape[0]
+        result = np.zeros((samples))
+        
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 sub = []
                 for model in self.estimators:
                     sub.append(self._make_prediction(model, X[i : i + 1]))
                 uniques, counts = np.unique(np.array(sub), return_counts=True)
                 result[i] = uniques[np.argmax(counts)]
         else:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 pool = ThreadPoolExecutor(max_workers=self.n_jobs)
                 future_to_pred = {
                     pool.submit(self._make_prediction, model, X[i : i + 1]): model

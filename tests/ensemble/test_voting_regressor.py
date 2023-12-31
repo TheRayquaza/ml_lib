@@ -45,24 +45,6 @@ def test_voting_regressor_init(estimators):
         ],
     ],
 )
-def test_voting_regressor_str(estimators):
-    voting_regressor = VotingRegressor(estimators)
-    assert str(voting_regressor) == "VotingRegressor"
-
-
-@pytest.mark.parametrize(
-    "estimators",
-    [
-        [
-            ("DecisionTree", DecisionTreeRegressor()),
-            ("LinearRegression", LinearRegression()),
-        ],
-        [
-            ("RandomForest", RandomForestRegressor()),
-            ("LinearRegression", LinearRegression()),
-        ],
-    ],
-)
 def test_voting_regressor_fit_predict(estimators):
     voting_regressor = VotingRegressor(estimators)
 

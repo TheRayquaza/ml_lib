@@ -5,11 +5,11 @@ from multiprocessing import cpu_count
 
 
 def _default_distance_method(X1: np.ndarray, X2: np.ndarray) -> float:
-    return np.linalg.norm(X1 - X2)
+    return float(np.linalg.norm(X1 - X2))
 
 
 class KNeighborsClassifier(Model):
-    def __init__(self, k=5, distance_method=_default_distance_method, n_jobs=-1):
+    def __init__(self, k=5, distance_method=_default_distance_method, n_jobs=-1, name="KNeighborsClassifier"):
         """
         Initialize the KNeighborsClassifier.
 
@@ -21,16 +21,16 @@ class KNeighborsClassifier(Model):
             Method to compute the distance between points (default is np.linalg.norm).
         n_jobs : int, optional
             The number of jobs to run in parallel during prediction (default is -1, using all available CPUs).
+        name : str, optional
+            The name given to the model
         """
-        if k < 0:
-            raise ValueError("KNeighborsClassifier: k should be non-negative")
+        super().__init__(random_state=None, name=name)
+        if k <= 0:
+            raise ValueError("KNeighborsClassifier: k should be greater than 0")
         self.k = k
         self.distance_method = distance_method
         self.n_jobs = cpu_count() if n_jobs == -1 else n_jobs
-        self._fitted = False
 
-    def __str__(self):
-        return "KNeighborsClassifier"
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         """
@@ -48,10 +48,8 @@ class KNeighborsClassifier(Model):
         self : KNeighborsClassifier
             Returns the instance itself.
         """
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         self.classes = np.unique(y)
-        self._fitted = True
         return self
 
     def _quick_ascending_insert(self, x: list, v: float) -> int:
@@ -92,11 +90,11 @@ class KNeighborsClassifier(Model):
             Predicted class for the data point.
         """
         distances, classes = [], []
-        for i in range(self.X.shape[0]):
+        for i in range(self.samples):
             j = self._quick_ascending_insert(
                 distances, self.distance_method(self.X[i], X)
             )
-            classes.insert(j, self.y[i, 0])
+            classes.insert(j, self.y[i])
         best_classes = classes[: min(self.k, len(classes))]
         values, count = np.unique(best_classes, return_counts=True)
         return values[np.argmax(count)]
@@ -115,16 +113,18 @@ class KNeighborsClassifier(Model):
         np.ndarray
             Predicted class labels.
         """
-        if not self._fitted:
-            raise Exception("KNeighborsClassifier: not fitted")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        
+        samples = X.shape[0]
+        result = np.zeros((samples))
+        
         if not self.n_jobs:
-            for i in range(X.shape[0]):
+            for i in range(samples):
                 result[i] = self._make_prediction(X[i])
         else:
             pool = ThreadPoolExecutor(max_workers=self.n_jobs)
             future_to_pred = {
-                pool.submit(self._make_prediction, X[i]): i for i in range(X.shape[0])
+                pool.submit(self._make_prediction, X[i]): i for i in range(samples)
             }
             for future in as_completed(future_to_pred):
                 result[future_to_pred[future]] = future.result()

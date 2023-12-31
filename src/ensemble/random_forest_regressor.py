@@ -14,6 +14,7 @@ class RandomForestRegressor(Model):
         n_jobs=None,
         bootstrap=True,
         random_state=None,
+        name="RandomForestRegressor"
     ):
         """
         Initialize the RandomForestRegressor.
@@ -32,8 +33,10 @@ class RandomForestRegressor(Model):
             Whether to use bootstrap samples for training each decision tree (default is True).
         random_state : int, optional
             Random state for reproducibility (default is None).
+        name : str, optional
+            The name given to the model.
         """
-        np.random.seed(random_state)
+        super().__init__(random_state=random_state, name=name)
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.method = method
@@ -57,11 +60,6 @@ class RandomForestRegressor(Model):
         self.estimators = [
             DecisionTreeRegressor(max_depth=max_depth, method=method, n_jobs=n_jobs)
         ] * n_estimators
-
-        self._fitted = False
-
-    def __str__(self):
-        return "RandomForestRegressor"
 
     def _bagging(self):
         """
@@ -93,9 +91,7 @@ class RandomForestRegressor(Model):
         y : np.ndarray
             Target values.
         """
-        self._fitted = True
-        self.X = X
-        self.y = y
+        super().fit(X, y)
         L = self._bagging()
 
         # Fit models either sequentially or in parallel
@@ -155,9 +151,8 @@ class RandomForestRegressor(Model):
         np.ndarray
             Predicted values.
         """
-        if not self._fitted:
-            raise Exception("RandomForestRegressor: not fitted")
-        result = np.zeros((X.shape[0], 1))
+        super().predict(X)
+        result = np.zeros((X.shape[0]))
         if not self.n_jobs:
             for i in range(X.shape[0]):
                 sub = []

@@ -28,15 +28,6 @@ def test_bagging_classifier_init(base_estimator, n_estimators, n_jobs):
     with pytest.raises(ValueError, match="estimators"):
         BaggingClassifier(base_estimator, 0)
 
-
-@pytest.mark.parametrize(
-    "base_estimator", [DecisionTreeClassifier(), LogisticRegression()]
-)
-def test_bagging_classifier_str(base_estimator):
-    bagging_classifier = BaggingClassifier(base_estimator)
-    assert str(bagging_classifier) == "BaggingClassifier"
-
-
 @pytest.mark.parametrize(
     "base_estimator, n_estimators, n_jobs",
     [
